@@ -10,8 +10,11 @@ Bottle-cap LoRa pucks (~15 g, target $15) that an isolated person (IP) drops as 
 Each puck:
 
 1. **Dormant** in the survival vest. No emissions.
-2. **Activation**: IP taps it (token/magnet). Puck IDs are pre-assigned and used in order
-   (1, 2, 3…), so there is no pairing handshake; every puck already holds the chain key.
+2. **Activation + ID assignment**: IP taps it (token/magnet) while holding it next to the
+   previous puck. The new puck sends `PKT_PAIR_REQ` at minimum power; the neighbor answers
+   `PKT_PAIR_ACK` with its own ID, and the new puck takes **ID + 1** and remembers who to report
+   to. No answer within the window → it is the first puck, ID 1, the anchor. Pucks are
+   interchangeable in the vest; order comes from use. Chain key is pre-shared in every puck.
 3. **Carried**: logs steps, heading (if magnetometer), barometric altitude. Radio off.
 4. **Settling**: dropped; after a stillness window it arms tamper.
 5. **Drop report (backward)**: once settled, puck N+1 sends its leg (steps, heading if known,
@@ -77,9 +80,16 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
 - **Sleep-and-listen is the hardest piece. Timebox to Sat 22:00.** If it isn't working,
   run pucks always-on for the demo and state the duty-cycle math.
 
-### Chain linking and keys (decided Sat 17:45; supersedes the pairing handshake)
-- **No pairing on the air.** IDs are pre-assigned at flash time (`PUCK_ID`) and used in order; the
-  chain key is pre-shared in every puck. BLE + ECDH (as in the COA) is the *production* key story.
+### Chain linking and keys (decided Sat 17:45–18:00)
+- **ID assignment at activation, hand to hand.** New puck sends `PKT_PAIR_REQ` at
+  `LORA_PAIR_TX_DBM` (minimum; centimeters of range) for `PAIR_WINDOW_MS`. The adjacent puck,
+  already armed and listening, replies `PKT_PAIR_ACK {myPosition}`. New puck sets
+  `position = myPosition + 1`, stores `prevId = myPosition` in EEPROM, and that's who it will
+  drop-report to. No ack in the window → `position = 1`, anchor. `PUCK_ID` at flash time is
+  gone; all pucks are flashed identical. Chain key pre-shared; BLE + ECDH (as in the COA) is the
+  *production* key story.
+- Edge: if the neighbor is still in HANDLING (not yet armed) it must still answer PAIR_REQ, so
+  the pair listener runs in HANDLING and ARMED, not just ARMED.
 - **Backward drop report.** On settling, puck N+1 unicasts `PKT_DROP_REPORT` to puck N (RadioHead
   `to` byte = N) with `{steps, headingDeg, altDeltaM}`, signed. Puck N verifies, persists the
   pointer in EEPROM, and replies `PKT_DROP_ACK`. Sender power-steps 5→10→20 dBm, 3 tries each,
