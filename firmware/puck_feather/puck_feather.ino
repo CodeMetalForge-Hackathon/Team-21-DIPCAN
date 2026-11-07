@@ -126,7 +126,18 @@ static void baroPoll() {
   static uint32_t last = 0;
   if (!haveBaro || millis() - last < BARO_SAMPLE_MS) return;
   last = millis();
-  if (bme.performReading()) baroPa = bme.pressure;
+  if (!bme.performReading()) return;
+  baroPa = bme.pressure;
+  if (state == ARMED && baroBasePa > 0) {
+    float d = baroBasePa - baroPa;                       // positive = pressure fell = went up
+    if (fabsf(d) < BARO_DROP_PA && tSusp == 0) {
+      // not suspicious: let the baseline follow slow weather drift
+      float alpha = (BARO_SAMPLE_MS / 1000.0f) / BARO_BASE_TAU_S;
+      baroBasePa += (baroPa - baroBasePa) * alpha;
+    }
+    static uint32_t lastLog = 0;
+    if (fabsf(d) > BARO_LOG_PA && millis() - lastLog > 500) { lastLog = millis(); Serial.printf("EVT baro d=%.1f Pa (%.2f m)\n", d, d / 12.0f); }
+  }
 #endif
 }
 static float altitudeM(float pa) { return 44330.0f * (1.0f - powf(pa / 101325.0f, 0.1903f)); }

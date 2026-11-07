@@ -31,8 +31,10 @@
 #define TILT_DEG           15.0f
 #define MOTION_G           0.25f
 #define STILL_G            0.08f
-#define BARO_DROP_PA       20.0f     // ~1.7 m lift
-#define BARO_SAMPLE_MS     500
+#define BARO_DROP_PA       8.0f      // ~0.7 m lift (12 Pa/m). Sustained 2 s, so noise won't trip it
+#define BARO_SAMPLE_MS     250
+#define BARO_BASE_TAU_S    300.0f    // baseline tracks weather with a 5 min time constant while still
+#define BARO_LOG_PA        3.0f      // log "EVT baro d=..." when |delta| exceeds this (demo visibility)
 
 // ---- radio (Feather RP2040 RFM95 = SX1276) ---------------------------------
 #define LORA_FREQ_MHZ      915.0
