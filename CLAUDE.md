@@ -125,6 +125,13 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
   required. FreeTAKServer is optional/production.
 - Original code is `chain.py` and `cot.py` (~200 lines). Everything else is existing tooling.
 
+### Finding a puck without GPS (designed, not built)
+Chain offsets get the rescuer to the neighborhood; RSSI on each answer (plus body-shadow
+direction finding with the existing antenna) gets them close; a signed **LOCATE** command makes
+one puck beacon for 60 s at stepped power with a buzzer chirp for the last 20 m. Full design and
+a ready-to-apply firmware patch: `docs/locate-design.md`, `docs/locate-firmware.patch`. A Yagi
+was ruled out for size. Build this after the PoC (puck 2, pairing, ATAK) is done.
+
 ### Timers (see `firmware/puck_feather/config.h`)
 | Constant | Demo | Production |
 |---|---|---|

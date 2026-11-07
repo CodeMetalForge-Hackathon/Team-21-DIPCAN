@@ -16,6 +16,7 @@ is only *what works right now*.
 | 5 | **Tamper** | 🟢 pass (baro) | 1.0 m lift → `suspicious` at 8 Pa → `brick confirmed` 2.2 s later. Accelerometer not wired yet (`HAS_ACCEL 0`). |
 | 6 | **Kill** | 🟢 pass, **over the air** | `sweep.py --kill` via the bridge → bricked → silent on next sweep. Also verified over USB. Flag survives reboot/reflash; `UNBRICK` over USB restores. |
 | — | Replay guard | 🟢 pass | Re-sent challenge #1 → `EVT replay_rejected`. |
+| — | **LOCATE** (homing) | 📐 designed, not built (16:30) | Signed per-puck command → 60 s of power-stepped beacons (20/10/2/−4 dBm) + buzzer/LED chirp; rescuer homes on RSSI and lowest power heard. Firmware edits saved as `docs/locate-firmware.patch`; design in `docs/locate-design.md`. Deferred until the PoC is complete. |
 
 ## Hardware state
 
@@ -70,6 +71,13 @@ is only *what works right now*.
 4. Chain the MMA7660 onto the BME688's second STEMMA port → `HAS_ACCEL 1` → tilt/motion tamper.
 5. Pi hotspot + ATAK on the phone → `cot.py` marker lands (Sat 20:00 gate).
 6. ~~Solder both antennas~~ done 15:40. TX power can go to 20 dBm for range tests now (`LORA_TX_DBM` in both sketches).
+
+## Parked features (designed, not built)
+
+- **LOCATE / homing** — see `docs/locate-design.md` and `docs/locate-firmware.patch`. Answers
+  "how does the rescuer find the puck without GPS": chain offsets → RSSI homing (body-shadow
+  DF, no hardware) → keyed beacon with power stepping → buzzer for the last 20 m.
+- **Duty-cycled receive** — behind `LISTEN_IDLE_SLEEP`; 0/10 with the long-preamble bridge.
 
 ## Known gaps / honest notes for the table
 

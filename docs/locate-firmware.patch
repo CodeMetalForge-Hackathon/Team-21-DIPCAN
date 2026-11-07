@@ -1,0 +1,158 @@
+diff --git a/firmware/common/packet.h b/firmware/common/packet.h
+index 4e389e7..716ee9e 100644
+--- a/firmware/common/packet.h
++++ b/firmware/common/packet.h
+@@ -21,6 +21,8 @@ enum PacketType : uint8_t {
+   PKT_ANSWER    = 0x02,  // puck -> interrogator
+   PKT_KILL      = 0x03,  // interrogator -> pucks (signed)
+   PKT_TAMPERED  = 0x04,  // optional unsigned last gasp before brick
++  PKT_LOCATE    = 0x05,  // interrogator -> one puck (signed): beacon for homing
++  PKT_BEACON    = 0x06,  // puck -> interrogator, repeated, power-stepped, while locating
+   PKT_PAIR_REQ  = 0x10,  // puck -> puck, min TX power, during activation window
+   PKT_PAIR_ACK  = 0x11,
+ };
+@@ -36,10 +38,22 @@ enum PuckStatus : uint8_t {
+ 
+ // Interrogator -> pucks. Counter is monotonic; pucks ignore counter <= last seen (replay guard).
+ struct Challenge {
+-  uint8_t  type;        // PKT_CHALLENGE or PKT_KILL
++  uint8_t  type;        // PKT_CHALLENGE, PKT_KILL or PKT_LOCATE
+   uint16_t chainId;
+   uint32_t counter;
+-  uint8_t  hmac[HMAC_LEN];  // HMAC(key, type|chainId|counter)
++  uint8_t  target;      // puck ID this is for; 0 = every puck in the chain
++  uint8_t  hmac[HMAC_LEN];  // HMAC(key, type|chainId|counter|target)
++};
++
++// Puck -> interrogator while locating. Short on purpose; sent every BEACON_PERIOD_MS, cycling
++// txDbm through the power steps so the receiver learns the lowest power it can still hear.
++struct Beacon {
++  uint8_t  type;        // PKT_BEACON
++  uint16_t chainId;
++  uint8_t  puckId;
++  uint8_t  seq;
++  int8_t   txDbm;       // power this beacon was sent at
++  uint8_t  hmac[HMAC_LEN];
+ };
+ 
+ // Puck -> interrogator. Sent at slot (position * SLOT_MS) after a valid challenge.
+@@ -70,5 +84,8 @@ struct Pair {
+ 
+ static_assert(sizeof(Challenge) <= PACKET_MAX, "Challenge exceeds packet budget");
+ static_assert(sizeof(Answer)    <= PACKET_MAX, "Answer exceeds packet budget");
++static_assert(sizeof(Beacon)    <= PACKET_MAX, "Beacon exceeds packet budget");
+ static_assert(sizeof(Pair)      <= PACKET_MAX, "Pair exceeds packet budget");
+-static_assert(sizeof(Answer) == 35, "Answer layout changed; update interrogator/packet.py");
++static_assert(sizeof(Challenge) == 24, "Challenge layout changed; update interrogator/packet.py");
++static_assert(sizeof(Answer)    == 35, "Answer layout changed; update interrogator/packet.py");
++static_assert(sizeof(Beacon)    == 22, "Beacon layout changed; update interrogator/packet.py");
+diff --git a/firmware/puck_feather/config.h b/firmware/puck_feather/config.h
+index d0ac9ad..0fa6582 100644
+--- a/firmware/puck_feather/config.h
++++ b/firmware/puck_feather/config.h
+@@ -53,7 +53,15 @@
+ #endif
+ #define LORA_PAIR_TX_DBM   2
+ 
++// ---- locate / beacon -------------------------------------------------------
++#define LOCATE_DURATION_MS (60UL * 1000)   // beacon this long after a signed LOCATE
++#define BEACON_PERIOD_MS   500
++#define BEACON_POWERS      { 20, 10, 2, -4 } // dBm, cycled per beacon; lowest heard = distance bucket
++#define BEACON_CHIRP_MS    40              // buzzer + LED on-time per beacon
++
+ // ---- pins ------------------------------------------------------------------
++#define PIN_BUZZER         5         // Grove buzzer SIG; HIGH = sound. Harmless if nothing's wired.
++#define HAS_BUZZER         1
+ #define PIN_RF_CS          16
+ #define PIN_RF_RST         17
+ #define PIN_RF_DIO0        21
+diff --git a/firmware/puck_feather/puck_feather.ino b/firmware/puck_feather/puck_feather.ino
+index 2278a28..72031da 100644
+--- a/firmware/puck_feather/puck_feather.ino
++++ b/firmware/puck_feather/puck_feather.ino
+@@ -38,6 +38,9 @@ static uint16_t chainId  = CHAIN_ID;
+ static uint8_t  position = PUCK_ID;
+ static uint32_t lastCounter = 0;
+ 
++static uint32_t locateUntil = 0, lastBeacon = 0;
++static uint8_t  beaconSeq = 0;
++static const int8_t beaconPowers[] = BEACON_POWERS;
+ static float bx = 0, by = 0, bz = 1;     // baseline gravity after settle
+ static float baroBasePa = 0, baroPa = 0, elevBaseM = 0;
+ static uint16_t steps = 0, headingDeg = 0xFFFF;
+@@ -189,6 +192,7 @@ static void setState(State s) { state = s; tState = millis(); Serial.printf("STA
+ 
+ static void brick(const char* why) {
+   Serial.printf("EVT brick %s\n", why);
++  locateUntil = 0;
+   memset(chainKey, 0, KEY_LEN);
+   persistSave(true);
+   radio.sleep();
+@@ -210,18 +214,55 @@ static void sendAnswer(uint32_t counter) {
+   Serial.printf("EVT answered ctr=%lu elev=%d\n", (unsigned long)counter, a.elevM);
+ }
+ 
++static void chirp() {
++  digitalWrite(PUCK_LED, HIGH);
++#if HAS_BUZZER
++  digitalWrite(PIN_BUZZER, HIGH);
++#endif
++  delay(BEACON_CHIRP_MS);
++  digitalWrite(PUCK_LED, LOW);
++#if HAS_BUZZER
++  digitalWrite(PIN_BUZZER, LOW);
++#endif
++}
++
++// One homing beacon at the next power step. Called from the ARMED loop while locateUntil is set.
++static void sendBeacon() {
++  Beacon b{};
++  b.type = PKT_BEACON; b.chainId = chainId; b.puckId = position; b.seq = beaconSeq;
++  b.txDbm = beaconPowers[beaconSeq % (sizeof(beaconPowers) / sizeof(beaconPowers[0]))];
++  hmac16((const uint8_t*)&b, sizeof(b) - HMAC_LEN, b.hmac);
++#if TRANSPORT_LORA
++  radio.setOutputPower(b.txDbm);
++#endif
++  txPacket((const uint8_t*)&b, sizeof(b));
++#if TRANSPORT_LORA
++  radio.setOutputPower(LORA_TX_DBM);
++#endif
++  chirp();
++  beaconSeq++;
++}
++
+ static void handlePacket(const uint8_t* buf, size_t n) {
+   if (n != sizeof(Challenge)) { Serial.printf("EVT len_mismatch %u\n", (unsigned)n); return; }
+   Challenge c; memcpy(&c, buf, sizeof(c));
+   if (!verifyChallenge(c)) return;
++  if (c.target != 0 && c.target != position) { Serial.printf("EVT not_for_me target=%u\n", c.target); return; }
+   if (c.type == PKT_KILL) brick("kill");
+   else if (c.type == PKT_CHALLENGE) sendAnswer(c.counter);
++  else if (c.type == PKT_LOCATE) {
++    locateUntil = millis() + LOCATE_DURATION_MS; lastBeacon = 0; beaconSeq = 0;
++    Serial.printf("EVT locate %lu s\n", (unsigned long)(LOCATE_DURATION_MS / 1000));
++  }
+ }
+ 
+ // ---------------------------------------------------------------------------
+ void setup() {
+   pinMode(PUCK_LED, OUTPUT);
+   pinMode(PIN_HALL, INPUT_PULLUP);
++#if HAS_BUZZER
++  pinMode(PIN_BUZZER, OUTPUT); digitalWrite(PIN_BUZZER, LOW);
++#endif
+   Serial.begin(115200);
+   uint32_t t0 = millis(); while (!Serial && millis() - t0 < 3000) {}
+   Serial.printf("\nPUCK feather-rp2040-rfm95 id=%u chain=%u transport=%s demo=%d\n",
+@@ -310,6 +351,11 @@ void loop() {
+       uint8_t buf[PACKET_MAX];
+       size_t n = rxPacket(buf, sizeof(buf));
+       if (n) handlePacket(buf, n);
++
++      if (locateUntil) {
++        if (now > locateUntil) { locateUntil = 0; Serial.println("EVT locate_done"); }
++        else if (now - lastBeacon >= BEACON_PERIOD_MS) { lastBeacon = now; sendBeacon(); }
++      }
+ #if TRANSPORT_LORA && LISTEN_IDLE_SLEEP
+       radio.sleep();
+       delay(LISTEN_PERIOD_MS - LISTEN_WINDOW_MS);
