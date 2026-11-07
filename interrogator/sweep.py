@@ -21,6 +21,7 @@ import packet
 COUNTER_FILE = os.path.join(os.path.dirname(__file__), ".counter")
 SLOT_S = 0.4          # must match SLOT_MS in firmware config.h
 MAX_PUCKS = 8
+PREAMBLE_S = 1.3      # bridge sends a ~1.23 s wake-on-radio preamble before the challenge payload
 
 
 def next_counter() -> int:
@@ -37,7 +38,7 @@ def sweep_once(ser: serial.Serial, key: bytes, chain_id: int, kill: bool = False
     ser.write(b"TX " + packet.build_challenge(key, chain_id, ctr, kill).hex().encode() + b"\n")
     print(f"[sweep] {'KILL' if kill else 'challenge'} ctr={ctr}")
     answers = []
-    deadline = time.time() + SLOT_S * (MAX_PUCKS + 1)
+    deadline = time.time() + PREAMBLE_S + SLOT_S * (MAX_PUCKS + 1)
     while time.time() < deadline:
         line = ser.readline().decode(errors="ignore").strip()
         if not line.startswith("RX "):

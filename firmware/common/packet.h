@@ -8,6 +8,14 @@
 #define HMAC_LEN   16   // HMAC-SHA256 truncated to 16 bytes
 #define KEY_LEN    16   // chain key bytes
 
+// The 32u4 interrogator bridge runs RadioHead (RadioLib doesn't fit in 28 KB). RadioHead
+// prepends a 4-byte header {to, from, id, flags} to every LoRa frame and strips it on receive.
+// RadioLib pucks therefore add/strip these 4 bytes themselves so the wire format matches.
+// The Pi never sees them. Air frame = RH_HDR_LEN + sizeof(struct).
+#define RH_HDR_LEN   4
+#define RH_BROADCAST 0xFF
+#define LORA_SYNC    0x12   // RadioHead's default; RadioLib pucks set the same
+
 enum PacketType : uint8_t {
   PKT_CHALLENGE = 0x01,  // interrogator -> pucks
   PKT_ANSWER    = 0x02,  // puck -> interrogator

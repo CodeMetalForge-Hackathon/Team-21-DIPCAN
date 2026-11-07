@@ -53,6 +53,12 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
   Pins on the RP2040 Feather: CS 16, RST 17, DIO0 21. DIO1 is not wired, so no hardware
   duty-cycle RX; the puck opens a real 200 ms receive window each listen period instead.
 - **TX power 5 dBm on the bench** until the spring antennas are soldered; 20 dBm for the stairwell.
+- **The 32u4 bridge runs RadioHead, not RadioLib** (RadioLib's SX127x driver is 35 KB; the 32u4 has
+  28 KB). RadioHead puts a 4-byte `{to, from, id, flags}` header on every frame and uses sync
+  word 0x12, so: pucks add/strip the header under `TRANSPORT_LORA` (`RH_HDR_LEN` in `packet.h`),
+  everything uses sync 0x12, and the bridge sets modem registers `{0x76, 0x94, 0x04}` = BW125,
+  CR4/7, SF9, CRC on, to match the pucks. The Pi never sees the header. A second RP2040 Feather
+  can be the bridge instead (`build.sh bridge rp2040`), same air format.
 - **Demo SF7–SF9, BW125.** Production SF10–SF12 for range. A 40-byte packet at SF12 is ~2 s
   of airtime, which is why we keep packets small and SF low for the demo.
 - **Slotted replies:** puck at chain position N answers at `N * SLOT_MS` (400 ms) after the
@@ -102,6 +108,8 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
 - **Activation / disarm: Hall sensor + magnet is the plan.** ST25DV NFC (I2C, GPO wake) is the
   stretch goal if the library has one. Grove PN532 also works but draws more. Either way the
   pitch is "a challenge-response disarm before pickup"; the chip is an implementation detail.
+- Hall on pin 6, LOW near a magnet. **Tap (≥300 ms) = activate. Hold 10 s on an activated puck
+  = IP kill** (`brick("ip_kill")`). The activation tap doesn't count toward the hold.
 
 ### Power
 - **LiPo on the Feather's JST-PH, not a coin cell.** RFM95 TX at 20 dBm pulls ~120 mA; a CR2032

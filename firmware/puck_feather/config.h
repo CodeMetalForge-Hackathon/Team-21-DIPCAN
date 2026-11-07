@@ -21,6 +21,9 @@
   #define DEADMAN_MS       (72UL * 3600 * 1000)
 #endif
 #define LISTEN_WINDOW_MS   200       // RFM95 has no auto duty-cycle; we open a real RX window
+#define LISTEN_MAX_MS      3000      // if a preamble is detected in the window, stay up to this long
+#define LISTEN_IDLE_SLEEP  0         // 0 = receiver always on (PoC). 1 = windowed wake-on-radio: not yet
+                                     //     working with the bridge's long preamble; revisit after the PoC.
 #define SLOT_MS            400
 #define PAIR_WINDOW_MS     (10UL * 1000)
 #define ARM_GRACE_MS       (10UL * 1000)
@@ -40,7 +43,7 @@
 #define LORA_FREQ_MHZ      915.0
 #define LORA_BW_KHZ        125.0
 #define LORA_CR            7
-#define LORA_SYNC_WORD     0x34
+#define LORA_SYNC_WORD     LORA_SYNC    // 0x12, from packet.h — must match the RadioHead bridge
 #if DEMO
   #define LORA_SF          9
   #define LORA_TX_DBM      5         // raise to 20 once antennas are soldered
@@ -55,6 +58,8 @@
 #define PIN_RF_RST         17
 #define PIN_RF_DIO0        21
 #define PIN_HALL           6         // Grove Hall: LOW near magnet
+#define HALL_TAP_MS        300       // magnet present this long = activate (debounce)
+#define HALL_KILL_MS       10000     // magnet held this long after activation = IP kill
 #define PUCK_LED           LED_BUILTIN   // (PIN_LED is taken by the RP2040 core)
 
 // ---- sensors ---------------------------------------------------------------

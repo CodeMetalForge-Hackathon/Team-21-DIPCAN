@@ -28,6 +28,8 @@ static State state = DORMANT;
 static uint32_t tState = 0, tArmed = 0, tSusp = 0;
 
 static SX1276 radio = new Module(PIN_RF_CS, PIN_RF_DIO0, PIN_RF_RST, RADIOLIB_NC);
+static volatile bool rxDone = false;
+static void onRxDone() { rxDone = true; }
 static Adafruit_BME680 bme;
 static bool haveBaro = false;
 
@@ -74,8 +76,12 @@ static bool verifyChallenge(const Challenge& c) {
 // ---- transport -------------------------------------------------------------
 static void txPacket(const uint8_t* buf, size_t n) {
 #if TRANSPORT_LORA
-  radio.transmit((uint8_t*)buf, n);
-  radio.startReceive();
+  // RadioHead-compatible frame: 4-byte header {to, from, id, flags} then payload.
+  uint8_t frame[RH_HDR_LEN + PACKET_MAX];
+  frame[0] = RH_BROADCAST; frame[1] = position; frame[2] = 0; frame[3] = 0;
+  memcpy(frame + RH_HDR_LEN, buf, n);
+  radio.transmit(frame, RH_HDR_LEN + n);
+  rxDone = false; radio.startReceive();   // back to listening right away
 #else
   Serial.print("RX ");
   for (size_t i = 0; i < n; i++) Serial.printf("%02x", buf[i]);
@@ -86,9 +92,37 @@ static void txPacket(const uint8_t* buf, size_t n) {
 // Returns bytes received into buf, or 0. Non-blocking-ish: opens one LISTEN_WINDOW_MS window on LoRa.
 static size_t rxPacket(uint8_t* buf, size_t max) {
 #if TRANSPORT_LORA
-  int st = radio.receive(buf, max, LISTEN_WINDOW_MS * 1000UL);   // RadioLib timeout is in µs
-  if (st == RADIOLIB_ERR_NONE) return radio.getPacketLength();
-  return 0;
+  #if LISTEN_IDLE_SLEEP
+  // Wake-on-radio (deferred until after the PoC): listen LISTEN_WINDOW_MS; if the modem has locked
+  // onto a preamble/header by the end of the window (interrogator sends a long preamble), keep
+  // listening until the packet lands or LISTEN_MAX_MS. SX127x RegModemStat bits: 0 signal
+  // detected, 1 signal synchronized, 3 header info valid.
+  rxDone = false;
+  radio.startReceive();
+  uint32_t t0 = millis();
+  while (!rxDone) {
+    uint32_t dt = millis() - t0;
+    if (dt > LISTEN_MAX_MS) break;
+    if (dt > LISTEN_WINDOW_MS && !(radio.getModemStatus() & 0x0B)) break;
+    delay(2);
+  }
+  if (!rxDone) { radio.standby(); return 0; }
+  #else
+  // Always-on receiver: enter RX continuous once, then just poll the RxDone flag each loop.
+  static bool listening = false;
+  if (!listening) { rxDone = false; radio.startReceive(); listening = true; }
+  if (!rxDone) return 0;
+  listening = false;          // readData leaves the radio in standby; re-arm next call
+  #endif
+  uint8_t frame[RH_HDR_LEN + PACKET_MAX];
+  size_t n = radio.getPacketLength();
+  if (n > sizeof(frame)) n = sizeof(frame);
+  int st = radio.readData(frame, n);
+  if (st != RADIOLIB_ERR_NONE || n <= RH_HDR_LEN) return 0;
+  if (frame[0] != RH_BROADCAST && frame[0] != position) return 0;   // not for us
+  n -= RH_HDR_LEN; if (n > max) n = max;
+  memcpy(buf, frame + RH_HDR_LEN, n);
+  return n;
 #else
   static String line;
   while (Serial.available()) {
@@ -208,30 +242,42 @@ void setup() {
 #endif
 
   int st = radio.begin(LORA_FREQ_MHZ, LORA_BW_KHZ, LORA_SF, LORA_CR, LORA_SYNC_WORD, LORA_TX_DBM);
+  radio.setPacketReceivedAction(onRxDone);
   Serial.printf("EVT radio %s (%d)\n", st == RADIOLIB_ERR_NONE ? "ok" : "FAILED", st);
 
   if (state == BRICKED) { Serial.println("EVT previously_bricked"); setState(BRICKED); return; }
   setState(DORMANT);
 }
 
+// Hall sensor: LOW while a magnet is present. Returns how long it has been held, 0 if not.
+static uint32_t hallHeldMs() {
+  static uint32_t since = 0;
+  if (digitalRead(PIN_HALL) == LOW) { if (!since) since = millis(); return millis() - since; }
+  since = 0; return 0;
+}
+
 void loop() {
   uint32_t now = millis();
   float x, y, z; float g = gMag(x, y, z);
   baroPoll();
+  uint32_t held = hallHeldMs();
+
+  // IP kill: magnet held 10 s on an activated puck, any state but DORMANT/BRICKED.
+  if (state != DORMANT && state != BRICKED && held > HALL_KILL_MS) { brick("ip_kill"); return; }
 
   switch (state) {
     case DORMANT:
-      // Hall LOW = magnet present = stay dormant. In serial bench mode, also accept "ACTIVATE" on serial.
-      if (digitalRead(PIN_HALL) == LOW) setState(ACTIVATING);
-#if !TRANSPORT_LORA
+      // Magnet tap (debounced) = activate. In serial bench mode, "ACTIVATE" on serial does the same.
+      if (held > HALL_TAP_MS) setState(ACTIVATING);
+      // Bench: "ACTIVATE" over USB serial works in both transports (USB is never exposed in the field).
       if (Serial.available() && Serial.peek() == 'A') { Serial.readStringUntil('\n'); setState(ACTIVATING); }
-#endif
       break;
 
     case ACTIVATING:
-      // Pairing over LoRa goes here. Bench: fall through after the window.
+      // Pairing over LoRa goes here. For now: blink once, wait for the magnet to leave, then HANDLING.
       digitalWrite(PUCK_LED, HIGH); delay(100); digitalWrite(PUCK_LED, LOW);
       Serial.println("EVT activated");
+      while (digitalRead(PIN_HALL) == LOW && millis() - tState < HALL_KILL_MS) delay(20);  // don't count the tap as a hold
       setState(HANDLING);
       break;
 
@@ -264,7 +310,7 @@ void loop() {
       uint8_t buf[PACKET_MAX];
       size_t n = rxPacket(buf, sizeof(buf));
       if (n) handlePacket(buf, n);
-#if TRANSPORT_LORA
+#if TRANSPORT_LORA && LISTEN_IDLE_SLEEP
       radio.sleep();
       delay(LISTEN_PERIOD_MS - LISTEN_WINDOW_MS);
 #endif

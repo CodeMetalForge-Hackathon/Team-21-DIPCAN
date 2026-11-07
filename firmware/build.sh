@@ -26,5 +26,12 @@ case "${1:-puck}" in
     arduino-cli compile --fqbn "$FQBN_PUCK" "$ROOT/firmware/bench_feather"
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN_PUCK" -p "$PORT" "$ROOT/firmware/bench_feather"
     ;;
-  *) echo "usage: build.sh puck [id] [lora|serial] [port] | bench [port]"; exit 1 ;;
+  bridge)
+    # Feather 32u4 RFM95 by default; pass "rp2040" as $2 to build the bridge for a second RP2040 Feather.
+    if [ "${2:-}" = "rp2040" ]; then FQBN="$FQBN_PUCK"; PORT="${3:-$(port_auto)}"
+    else FQBN="adafruit:avr:feather32u4"; PORT="${2:-$(arduino-cli board list 2>/dev/null | awk '/32u4/{print $1; exit}')}"; fi
+    arduino-cli compile --fqbn "$FQBN" "$ROOT/firmware/bridge_feather"
+    [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN" -p "$PORT" "$ROOT/firmware/bridge_feather"
+    ;;
+  *) echo "usage: build.sh puck [id] [lora|serial] [port] | bench [port] | bridge [rp2040] [port]"; exit 1 ;;
 esac
