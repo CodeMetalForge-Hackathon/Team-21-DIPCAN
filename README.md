@@ -16,27 +16,41 @@ Design decisions and build notes for contributors (human or AI): [`CLAUDE.md`](C
 ```
 firmware/
   common/packet.h     shared wire format — agree here first, both sides build against it
-  puck/               XIAO ESP32 firmware: pair, carry, settle, listen, answer, brick
-  bridge/             XIAO as a USB-serial LoRa bridge for the interrogator Pi
+  puck_feather/       Feather RP2040 RFM95 puck: activate, settle, listen, answer, tamper, brick
+  bench_feather/      first-light sketch: BME688 + RFM95 init + LED
+  build.sh            arduino-cli wrapper that bakes the chain key in from interrogator/.env
 interrogator/
-  sweep.py            sends signed challenges over the bridge, collects answers
+  sweep.py            sends signed challenges (over the bridge, or straight to a puck on USB)
   chain.py            turns answers into an ordered chain with gaps
   cot.py              emits Cursor-on-Target markers + route to ATAK (UDP multicast)
-docs/                 COA, hardware list, demo script
+  packet.py           Python mirror of packet.h
+docs/                 COA, hardware list, build guide (index.html), demo script
 ```
+
+Hardware: Adafruit Feather RP2040 RFM95 pucks, BME688 on STEMMA QT, Feather 32u4 RFM95 as the
+interrogator's LoRa bridge, Raspberry Pi 5, Android phone running ATAK-CIV.
 
 ## Quick start
 
-### Puck / bridge firmware (PlatformIO)
+### Puck firmware (arduino-cli)
 
 ```sh
-cd firmware/puck
-pio run -t upload            # pick the board in platformio.ini (xiao_c6 / xiao_s3 / xiao_c3)
-pio device monitor -b 115200
+brew install arduino-cli
+arduino-cli config add board_manager.additional_urls https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+arduino-cli core update-index && arduino-cli core install rp2040:rp2040 adafruit:avr
+arduino-cli lib install RadioLib "Adafruit BME680 Library" Crypto
+
+printf 'CHAIN_KEY_HEX=%s\nCHAIN_ID=1\n' "$(python3 -c 'import secrets;print(secrets.token_hex(16))')" > interrogator/.env
+
+firmware/build.sh puck 1 serial      # puck ID 1, USB-serial transport (bench)
+firmware/build.sh puck 2 lora        # puck ID 2, over the air
 ```
 
-Set `DEMO 1` in `firmware/puck/src/config.h` for short timers during demos (settle 8 s,
-listen every 1 s). Production values are documented next to each constant.
+Bench a puck with no radio: `ACTIVATE` over serial arms it, then
+`python3 interrogator/sweep.py --port /dev/cu.usbmodem* --key $KEY --once`. `--kill` bricks it;
+`UNBRICK` over serial restores it.
+
+`DEMO 1` in `firmware/puck_feather/config.h` gives short timers (settle 8 s, listen every 1 s).
 
 ### Interrogator (Raspberry Pi, Python 3.11+)
 

@@ -42,8 +42,17 @@ Table judging Sun 12:00–14:00. Only work after Sat 10:00 counts; git history i
 
 ## Design decisions (current — update when they change)
 
+### Hardware pivot (Sat 13:00): Adafruit Feathers, not XIAO
+The boards on the table are **Adafruit Feather RP2040 RFM95** (pucks) and a **Feather 32u4 RFM95**
+(interrogator bridge), with a **BME688** on STEMMA QT. The build guide at `docs/index.html` matches
+this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cli` via
+`firmware/build.sh`. The earlier XIAO/PlatformIO sketches were removed (see git history).
+
 ### Radio
-- **Raw LoRa PHY, 915 MHz, SX1262, via RadioLib.** Not LoRaWAN. Not Meshtastic (it chatters).
+- **Raw LoRa PHY, 915 MHz, RFM95 (SX1276) via RadioLib.** Not LoRaWAN. Not Meshtastic (it chatters).
+  Pins on the RP2040 Feather: CS 16, RST 17, DIO0 21. DIO1 is not wired, so no hardware
+  duty-cycle RX; the puck opens a real 200 ms receive window each listen period instead.
+- **TX power 5 dBm on the bench** until the spring antennas are soldered; 20 dBm for the stairwell.
 - **Demo SF7–SF9, BW125.** Production SF10–SF12 for range. A 40-byte packet at SF12 is ~2 s
   of airtime, which is why we keep packets small and SF low for the demo.
 - **Slotted replies:** puck at chain position N answers at `N * SLOT_MS` (400 ms) after the
@@ -65,8 +74,14 @@ Table judging Sun 12:00–14:00. Only work after Sat 10:00 counts; git history i
 - Challenge = `{type, chainId, counter, hmac16}`. **Counter is monotonic**; each puck stores the
   highest counter seen and ignores anything ≤ it. This prevents replaying a recorded challenge
   to make pucks transmit (DF risk).
-- Answer = payload + HMAC-SHA256 truncated to 16 bytes. Crypto via **mbedTLS**, already in ESP-IDF.
+- Answer = payload + HMAC-SHA256 truncated to 16 bytes. Crypto via the Arduino **Crypto** library
+  (rweather) on the RP2040; stdlib `hmac` on the Pi.
 - Packet budget is **40 bytes**, enforced by `static_assert` in `firmware/common/packet.h`.
+  Challenge is 23 bytes, Answer is 35; `interrogator/packet.py` mirrors both and asserts the size.
+- **Serial transport for the bench.** `TRANSPORT_LORA=0` makes the puck read `TX <hex>` and write
+  `RX <hex> 0 0` over USB, so `sweep.py` talks to a puck directly with no radio. Same bytes, same
+  HMAC, same state machine. Flip to `TRANSPORT_LORA=1` (`build.sh puck <id> lora`) for the air.
+- `UNBRICK` over USB serial (never over the radio) clears the bricked flag and reboots. Bench only.
 
 ### Sensors and tamper
 - **Accelerometer is primary.** Kit part is the Grove 3-Axis Digital Accelerometer ±1.5g
@@ -78,30 +93,36 @@ Table judging Sun 12:00–14:00. Only work after Sat 10:00 counts; git history i
 - **Arm on "was moving, now still"**, not on free-fall. Free-fall + impact just shortens the
   settle timer. Covers drop, toss, and gentle placement. Grace period after arming: motion in
   the first 10 s returns to HANDLING instead of bricking.
-- **Barometer (BMP280/BME280) is requested from the hardware library; not in the team kit.**
-  If it never arrives, ultrasonic ranger (face-down) + light sensor confirm pickup, and the
-  elevation claim drops to "elevation at drop" via whatever the LoRa board provides.
+- **Barometer is the BME688** on the Feather's STEMMA QT port (I2C 0x77). Confirmed reading
+  ~999 hPa / 116 m at the venue. It's the lift confirmer and the elevation source. Gas heater is
+  off. Until the accelerometer is chained onto the same bus (`HAS_ACCEL 0`), a barometric lift
+  alone is treated as both trigger and confirmation.
+- The MMA7660 accelerometer chains onto the BME688's second STEMMA QT port (needs a Grove-to-
+  STEMMA/jumper cable). Set `HAS_ACCEL 1` once it's wired.
 - **Activation / disarm: Hall sensor + magnet is the plan.** ST25DV NFC (I2C, GPO wake) is the
   stretch goal if the library has one. Grove PN532 also works but draws more. Either way the
   pitch is "a challenge-response disarm before pickup"; the chip is an implementation detail.
 
 ### Power
-- **100 mAh LiPo, not a coin cell.** SX1262 TX at 22 dBm pulls ~120 mA; a CR2032 browns out.
-  Production story: coin cell + supercap.
+- **LiPo on the Feather's JST-PH, not a coin cell.** RFM95 TX at 20 dBm pulls ~120 mA; a CR2032
+  browns out. The Feather charges the LiPo over USB. Production story: coin cell + supercap.
+- The RP2040 has no ESP32-style deep sleep. Demo runs always-on with `radio.sleep()` between
+  listen windows; "dormant mode via pin wake" is the production story.
 
 ### Interrogator
-- **Pi 5 + a XIAO running the bridge firmware over USB serial.** Same RadioLib code as the
-  pucks; the Pi talks framed hex lines over `/dev/ttyACM0`. Avoids Pi SPI LoRa HAT driver pain.
+- **Pi 5 + a Feather 32u4 RFM95 as a USB-serial LoRa bridge** (`/dev/ttyACM0`). The Pi does all
+  the crypto and logic; the bridge just moves bytes as `TX <hex>` / `RX <hex> <rssi> <snr>`.
+  A second RP2040 Feather works identically as the bridge if the 32u4 is a pain.
 - **CoT goes to ATAK over UDP multicast `239.2.3.1:6969`** on the Pi hotspot. No server
   required. FreeTAKServer is optional/production.
 - Original code is `chain.py` and `cot.py` (~200 lines). Everything else is existing tooling.
 
-### Timers (see `firmware/puck/src/config.h`)
+### Timers (see `firmware/puck_feather/config.h`)
 | Constant | Demo | Production |
 |---|---|---|
 | Settle before arm | 8 s | 60 s |
 | Listen period | 1 s | 10 s |
-| Listen window | 50 ms | 50 ms |
+| Listen window | 200 ms | 200 ms |
 | Reply slot | 400 ms × position | same |
 | Dead-man | 30 min | 72 h |
 | Pair window | 10 s | 10 s |
@@ -110,24 +131,44 @@ Table judging Sun 12:00–14:00. Only work after Sat 10:00 counts; git history i
 
 | Layer | Choice |
 |---|---|
-| MCU | Seeed XIAO ESP32 (C6 preferred; S3/C3 fine). C6 needs arduino-esp32 core 3.x. |
-| Framework | Arduino core for ESP32, C++, on FreeRTOS/ESP-IDF |
-| Build | PlatformIO (`platformio.ini` per target) |
-| LoRa | RadioLib |
-| Sensors | Seeed `Accelerometer_MMA7660`, Adafruit `BMP280` |
-| Crypto | mbedTLS (bundled) |
-| Storage | ESP32 `Preferences` (NVS); `nvs_flash_erase()` is the brick |
+| MCU | Adafruit Feather RP2040 RFM95 (`rp2040:rp2040:adafruit_feather_rfm`, Earle Philhower core 6.3.2) |
+| Framework | Arduino, C++ |
+| Build | `arduino-cli` 1.5.x; `firmware/build.sh puck <id> [serial|lora]` / `build.sh bench` |
+| LoRa | RadioLib 7.8 (`SX1276` class) |
+| Sensors | Adafruit BME680 lib (drives the BME688); Seeed `Accelerometer_MMA7660` when wired |
+| Crypto | Crypto 0.4 (rweather) `SHA256::resetHMAC/finalizeHMAC` |
+| Storage | RP2040 EEPROM emulation (counter + bricked flag). Survives reflash by design. |
 | Interrogator | Python 3.11+, pyserial, stdlib `hmac`, `socket` |
 | TAK | ATAK-CIV on Android, scrcpy to mirror to the monitor |
 
-## Hardware on hand (Sat morning)
+Chain key: `interrogator/.env` (gitignored) holds `CHAIN_KEY_HEX` and `CHAIN_ID`; `build.sh`
+bakes it into the firmware with `-D`, `sweep.py --key` reads the same value.
 
-From the Grove 40-in-1 kit, confirmed: 3-axis accelerometer (MMA7660), temp & humidity,
-ultrasonic ranger, Hall sensor, light sensor, line finder. **No barometer found.**
+## Hardware on hand (Sat 13:00)
 
-Requested from the library: BMP280/BME280, LoRa SX1262 modules (Wio-SX1262 for XIAO ideally),
-two more XIAOs (four pucks + bridge), 9-axis IMU with magnetometer, LiPos with JST, PN532 or
-ST25DV, Pi 4/5 for the interrogator, Android phone with NFC for ATAK.
+Built and verified: Feather RP2040 RFM95 #1 with spring antenna (set, not yet soldered) and
+BME688 on a 50 mm STEMMA QT cable. Reads 999 hPa / 116 m / 24 °C. Radio inits.
+On the table, not yet assembled: second RP2040 Feather (puck 2), Feather 32u4 RFM95
+(interrogator bridge), Pi 5, Android phone.
+From the Grove kit: MMA7660 accelerometer, ultrasonic ranger, Hall sensor, light sensor,
+temp & humidity, line finder.
+Still wanted: Grove-to-STEMMA (or jumper) cable to chain the accelerometer, LiPos with JST-PH,
+magnets, an NFC tag chip (ST25DV) if one turns up.
+
+## Bench status
+
+| Test | Result |
+|---|---|
+| BME688 over I2C | pass, 2 s cadence |
+| RFM95 `radio.begin` 915 MHz SF9 | pass |
+| `ACTIVATE` → settle 8 s → `ARMED` with baro baseline | pass |
+| `sweep.py` challenge #1 → signed answer parsed, elev 116 m | pass (serial transport) |
+| Replay of challenge #1 | `EVT replay_rejected` |
+| `sweep.py --kill` | puck bricked, silent on next sweep |
+| Bricked flag survives reboot/reflash; `UNBRICK` clears it | pass |
+| Barometric lift tamper | **not yet tested** (needs a human to lift it) |
+| Two radios over the air | blocked on puck 2 / 32u4 assembly |
+| CoT into ATAK | blocked on hotspot; `cot.py` now warns instead of crashing |
 
 ## Lanes and build order
 
@@ -140,8 +181,8 @@ ST25DV, Pi 4/5 for the interrogator, Android phone with NFC for ATAK.
 
 ## Milestones
 
-- [ ] Sat 12:00 — two XIAOs exchange a packet over raw LoRa; sensors read on both
-- [ ] Sat 14:00 — signed challenge/answer on the bench; interrogator prints ID + elevation
+- [~] Sat 12:00 — two boards exchange a packet over raw LoRa (puck 1 radio up; puck 2 not built); BME688 reads
+- [x] Sat 14:00 — signed challenge/answer on the bench; interrogator prints ID + elevation (done 13:30, serial transport)
 - [ ] Sat 17:00 — pairing works; listen/sleep cycle confirmed (or timebox decision logged)
 - [ ] Sat 20:00 — **gate:** one puck's answer appears as a marker in ATAK. If broken at 22:00, all hands to Lane B
 - [ ] Sun 02:00 — tamper bricks a puck; chain of four draws as a route; kill works
@@ -155,11 +196,14 @@ Pairing, listen-and-answer, elevation, accelerometer tamper, remote kill, and th
 
 - `firmware/common/packet.h` is the contract between puck, bridge, and Pi. Change it only
   with both lanes present. Keep `static_assert(sizeof(...) <= PACKET_MAX)` green.
-- Every timer and threshold lives in `config.h`, never inline.
+- Every timer and threshold lives in `firmware/puck_feather/config.h`, never inline.
 - Serial log lines from the puck are `STATE <name>` / `EVT <name> ...` so the demo can tail them.
+  `sweep.py` only looks at lines starting `RX `, so logging and transport share the port safely.
 - Commit small and often; the git log is our proof of work.
-- Never commit keys. The demo chain key lives in `interrogator/.env` (gitignored) and is
-  passed to firmware via `-D CHAIN_KEY_HEX=...` in a local `platformio.local.ini` (gitignored).
+- Never commit keys. `interrogator/.env` is gitignored; `build.sh` reads it. Don't paste the key
+  into a sketch.
+- `arduino-cli` builds from a temp copy of the sketch, so `#include "../common/packet.h"` fails.
+  `build.sh` passes `-Ifirmware/common` instead; sketches `#include "packet.h"`.
 
 ## Answers to have ready at the table
 

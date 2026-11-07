@@ -51,16 +51,33 @@ def route_xml(nodes: list[chainmod.Node], chain_id: int) -> str:
             f'<__routeinfo><__navcues/></__routeinfo></detail></event>')
 
 
-def push(nodes: list[chainmod.Node], chain_id: int = 1) -> None:
+_warned = False
+
+
+def push(nodes: list[chainmod.Node], chain_id: int = 1, target: tuple[str, int] | None = None) -> bool:
+    """Send markers + route. `target` overrides multicast with a unicast (ip, port), e.g. the
+    phone's IP on port 4242. Returns False (and warns once) if the network isn't there; never raises."""
+    global _warned
     if not nodes:
-        return
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-    for n in nodes:
-        sock.sendto(marker_xml(n, chain_id).encode(), (MCAST_GROUP, MCAST_PORT))
+        return True
+    dest = target or (MCAST_GROUP, MCAST_PORT)
+    msgs = [marker_xml(n, chain_id) for n in nodes]
     if len(nodes) > 1:
-        sock.sendto(route_xml(nodes, chain_id).encode(), (MCAST_GROUP, MCAST_PORT))
-    sock.close()
+        msgs.append(route_xml(nodes, chain_id))
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+        for m in msgs:
+            sock.sendto(m.encode(), dest)
+        sock.close()
+        return True
+    except OSError as e:
+        if not _warned:
+            print(f"[cot] not sent ({e}); is this machine on the hotspot? markers:")
+            _warned = True
+        for n in nodes:
+            print(f"[cot]   P{n.puck_id} {n.status} elev={n.elev_m}m ({n.lat:.5f},{n.lon:.5f})")
+        return False
 
 
 if __name__ == "__main__":

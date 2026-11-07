@@ -21,3 +21,6 @@ __pycache__/
 # media (keep the backup demo video out of the repo; link it in README instead)
 *.mp4
 *.mov
+
+# interrogator runtime state
+interrogator/.counter
