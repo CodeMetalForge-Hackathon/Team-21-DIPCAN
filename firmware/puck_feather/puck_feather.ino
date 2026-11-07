@@ -256,10 +256,23 @@ static uint32_t hallHeldMs() {
   since = 0; return 0;
 }
 
+// Bench: "STATUS" over USB prints state, counter, baro, uptime. Works in any state.
+static void serialStatus() {
+  if (Serial.available() && Serial.peek() == 'S') {
+    String l = Serial.readStringUntil('\n'); l.trim();
+    if (l == "STATUS")
+      Serial.printf("STATUS state=%s id=%u chain=%u ctr=%lu baro=%s pa=%.0f transport=%s up=%lus\n",
+                    stateName[state], position, chainId, (unsigned long)lastCounter,
+                    haveBaro ? "ok" : "none", baroPa, TRANSPORT_LORA ? "lora" : "serial",
+                    (unsigned long)(millis() / 1000));
+  }
+}
+
 void loop() {
   uint32_t now = millis();
   float x, y, z; float g = gMag(x, y, z);
   baroPoll();
+  serialStatus();
   uint32_t held = hallHeldMs();
 
   // IP kill: magnet held 10 s on an activated puck, any state but DORMANT/BRICKED.

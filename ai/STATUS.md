@@ -23,7 +23,7 @@ is only *what works right now*.
 - **Puck 1**: Feather RP2040 RFM95 + BME688 (STEMMA QT, 0x77) + spring antenna **soldered** (15:40). On USB at `/dev/cu.usbmodem2101`. Firmware: `puck_feather`, ID 1, **LoRa transport**, always-on receiver, `DEMO 1`.
 - **Puck 2**: not assembled.
 - **Interrogator bridge** (Feather 32u4 RFM95): assembled, antenna **soldered** (15:40), flashed with `bridge_feather`. On USB at `/dev/cu.usbmodem11201`.
-- **Pi 5 / phone / hotspot**: not set up. `cot.py` warns and prints markers instead of crashing when there's no route.
+- **Pi 5**: repo cloned, bridge on `/dev/ttyACM0`, sweeps puck 1 over the air (16:55, `elev=111m`). Phone / hotspot / ATAK: in progress. `cot.py` warns and prints markers instead of crashing when there's no route.
 - **Grove sensors on hand, unwired**: MMA7660 accelerometer, Hall, ultrasonic, light, temp/humidity.
 
 ## Thresholds in use (`firmware/puck_feather/config.h`)
@@ -62,6 +62,8 @@ is only *what works right now*.
 | 15:45 | antennas soldered; 10 sweeps | 9/10, RSSI −36…−38; one miss at ctr=32 |
 | 15:50 | 20 sweeps | 20/20, RSSI −27…−32 |
 | 15:52 | **kill over the air** → sweep | bricked, silent; `UNBRICK` ok |
+| 16:50 | Pi couldn't reach puck: it was DORMANT after UNBRICK (not bricked). Added `STATUS` serial cmd, time-based counter in sweep.py | fixed |
+| 16:55 | **Pi 5 + 32u4 bridge → puck 1 over the air** | `puck 1 elev=111m` |
 
 ## Next
 

@@ -25,10 +25,13 @@ PREAMBLE_S = 1.3      # bridge sends a ~1.23 s wake-on-radio preamble before the
 
 
 def next_counter() -> int:
+    """Monotonic across every interrogator: seeded from wall-clock seconds, so a fresh Pi is
+    always ahead of whatever counter the pucks last accepted from the laptop (and vice versa).
+    The file only guards against several sweeps inside the same second."""
     n = 0
     if os.path.exists(COUNTER_FILE):
         n = int(open(COUNTER_FILE).read().strip() or 0)
-    n += 1
+    n = max(n + 1, int(time.time()))
     open(COUNTER_FILE, "w").write(str(n))
     return n
 
