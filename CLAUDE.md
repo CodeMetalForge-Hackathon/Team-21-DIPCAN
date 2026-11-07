@@ -10,15 +10,23 @@ Bottle-cap LoRa pucks (~15 g, target $15) that an isolated person (IP) drops as 
 Each puck:
 
 1. **Dormant** in the survival vest. No emissions.
-2. **Activation**: IP taps it (token/magnet). Two pucks activated within 10 s pair and share a chain key.
-   One becomes the anchor, one is carried.
+2. **Activation**: IP taps it (token/magnet). Puck IDs are pre-assigned and used in order
+   (1, 2, 3…), so there is no pairing handshake; every puck already holds the chain key.
 3. **Carried**: logs steps, heading (if magnetometer), barometric altitude. Radio off.
 4. **Settling**: dropped; after a stillness window it arms tamper.
-5. **Listening**: wakes the LoRa receiver briefly on a period. Answers *only* a challenge signed
-   with the chain key. The answer (puck ID, chain position, elevation, time since drop,
-   vector **from the previous puck**) is the first and only transmission in its life.
-6. **Bricked**: keys zeroized, flash erased, radio off. Triggered by sustained motion after
+5. **Drop report (backward)**: once settled, puck N+1 sends its leg (steps, heading if known,
+   Δelevation) **back to puck N**, power-stepping 5→10→20 dBm until puck N acks. Puck N stores
+   the pointer in EEPROM. No ack at 20 dBm → LED blinks "too far, step back". Puck 1 is the
+   anchor: dropped first, sends nothing, knows nothing until puck 2 reports to it.
+6. **Listening**: receiver on. Answers *only* a challenge signed with the chain key. The answer
+   carries: puck ID, elevation, time since drop, this puck's own leg from the previous puck,
+   **and the stored pointer to the next puck**. Both ends of every leg know it, so a bricked puck
+   in the middle doesn't break the chain: its neighbor still points at where it was.
+7. **Bricked**: keys zeroized, flash erased, radio off. Triggered by sustained motion after
    settle, light, a signed kill over LoRa, an IP kill tap, or a dead-man timer.
+
+Emissions budget per drop: one short report from puck N+1 and one ack from puck N, both at the
+IP's position, ~100 ms each at SF9. Accepted trade (Peter, Sat 17:45) for chain redundancy.
 
 A CSAR element carries an **interrogator** (Pi + LoRa bridge + chain key). It sweeps a signed
 challenge, pucks answer in slots, and the chain is pushed to **ATAK** as CoT markers + a route.
@@ -69,12 +77,20 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
 - **Sleep-and-listen is the hardest piece. Timebox to Sat 22:00.** If it isn't working,
   run pucks always-on for the demo and state the duty-cycle math.
 
-### Pairing and keys
-- **Pair over LoRa at minimum TX power, with the chain key pre-shared at flash time.**
-  Pairing exchanges only IDs and chain position. BLE + ECDH (Noise-style, as in the COA) is the
-  *production* story, not built this weekend. This removes an entire second radio stack from
-  the critical path.
-- Chain key: 16 bytes, stored in NVS. Zeroized on brick.
+### Chain linking and keys (decided Sat 17:45; supersedes the pairing handshake)
+- **No pairing on the air.** IDs are pre-assigned at flash time (`PUCK_ID`) and used in order; the
+  chain key is pre-shared in every puck. BLE + ECDH (as in the COA) is the *production* key story.
+- **Backward drop report.** On settling, puck N+1 unicasts `PKT_DROP_REPORT` to puck N (RadioHead
+  `to` byte = N) with `{steps, headingDeg, altDeltaM}`, signed. Puck N verifies, persists the
+  pointer in EEPROM, and replies `PKT_DROP_ACK`. Sender power-steps 5→10→20 dBm, 3 tries each,
+  until acked; failure = LED error pattern so the IP can step back toward puck N.
+- **Answer packet gains the pointer**: `nextSteps`, `nextHeading`, `nextAltDelta` (6 B). Answer
+  becomes 41 B, so raise `PACKET_MAX` to 48 (or merge steps+heading into an east/north pair).
+  Update `interrogator/packet.py` and the `static_assert`s together.
+- `chain.py` draws each leg from puck N's pointer first and falls back to puck N+1's own "from
+  previous" leg if N is silent. A leg known from both ends is drawn once.
+- Chain key: 16 bytes in EEPROM. Zeroized on brick.
+- Status: **not built yet.** Next after puck 2 is on the bench.
 
 ### Challenge / answer security
 - Challenge = `{type, chainId, counter, hmac16}`. **Counter is monotonic**; each puck stores the
