@@ -2,6 +2,8 @@
 
 **Dropped, Indexed, Passive Challenge-Answer Network.** Team 21, Code Metal Forge, Boston, November 2026.
 
+**[▶ DEMO VIDEO](docs/DIPCAN-demo.mp4)** (9 min: the problem, the design, and three live tests in Boston)
+
 A radio tells us where an isolated person is when they key it. DIPCAN tells us where they went while they stayed silent.
 
 An isolated person drops small radio pucks, dipcans, as they move. Each one records the leg it was carried: steps, heading, and elevation. None of them transmit on their own. When a friendly team with the chain key asks, every dipcan answers in turn and the trail draws itself in ATAK. If an enemy picks one up, it wipes itself, and the gap in the chain says where the enemy was and when.
@@ -77,7 +79,7 @@ What works, verified over the air during the build (details in [`ai/STATUS.md`](
 
 ## Film and photos
 
-The explainer film (nine minutes, real Zagros terrain, narrated, with the three Boston live tests) is delivered with the submission; it is not in this repo. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
+The demo video (nine minutes, real Zagros terrain, narrated, with the three Boston live tests): [`docs/DIPCAN-demo.mp4`](docs/DIPCAN-demo.mp4), 720p. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
 
 ## Repo layout
 
@@ -118,7 +120,9 @@ On the phone, the companion app sends markers to ATAK on the same device (a UDP 
 3. A judge picks up dipcan 3. Its marker turns "tampered" with the time, and the chain shows the gap.
 4. The team presses kill. Remaining markers go gray.
 
-![A beacon shouts at the sky. A dipcan whispers once.](docs/media/close.png)
+[![Watch the demo video](docs/media/close.png)](docs/DIPCAN-demo.mp4)
+
+*Click the image to play the demo video.*
 
 ## Team
 

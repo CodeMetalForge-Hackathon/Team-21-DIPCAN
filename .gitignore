@@ -28,3 +28,6 @@ interrogator/.counter
 
 # film and tooling live outside the repo
 video/
+
+# the demo video is the one video kept in the repo
+!docs/DIPCAN-demo.mp4
