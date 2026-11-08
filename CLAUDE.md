@@ -9,27 +9,35 @@ this file summarizes it and records the decisions made since.
 Bottle-cap LoRa pucks (~15 g, target $15) that an isolated person (IP) drops as they move.
 Each puck:
 
-1. **Dormant** in the survival vest. No emissions.
-2. **Activation + ID assignment**: IP taps it (token/magnet) while holding it next to the
-   previous puck. The new puck sends `PKT_PAIR_REQ` at minimum power; the neighbor answers
-   `PKT_PAIR_ACK` with its own ID, and the new puck takes **ID + 1** and remembers who to report
-   to. No answer within the window → it is the first puck, ID 1, the anchor. Pucks are
-   interchangeable in the vest; order comes from use. Chain key is pre-shared in every puck.
-3. **Carried**: logs steps, heading (if magnetometer), barometric altitude. Radio off.
-4. **Settling**: dropped; after a stillness window it arms tamper.
-5. **Drop report (backward)**: once settled, puck N+1 sends its leg (steps, heading if known,
-   Δelevation) **back to puck N**, power-stepping 5→10→20 dBm until puck N acks. Puck N stores
-   the pointer in EEPROM. No ack at 20 dBm → LED blinks "too far, step back". Puck 1 is the
-   anchor: dropped first, sends nothing, knows nothing until puck 2 reports to it.
-6. **Listening**: receiver on. Answers *only* a challenge signed with the chain key. The answer
-   carries: puck ID, elevation, time since drop, this puck's own leg from the previous puck,
-   **and the stored pointer to the next puck**. Both ends of every leg know it, so a bricked puck
-   in the middle doesn't break the chain: its neighbor still points at where it was.
-7. **Bricked**: keys zeroized, flash erased, radio off. Triggered by sustained motion after
-   settle, light, a signed kill over LoRa, an IP kill tap, or a dead-man timer.
+**Chain lifecycle (final, Peter, Sat 23:30). The successor's activation is the drop signal.**
+Every puck runs the same logic when its pull-tab is pulled:
 
-Emissions budget per drop: one short report from puck N+1 and one ack from puck N, both at the
-IP's position, ~100 ms each at SF9. Accepted trade (Peter, Sat 17:45) for chain redundancy.
+1. **Dormant** in the vest, tab in. No emissions.
+2. **ASK (15 s)**: tab pulled → broadcast `PKT_PAIR_REQ` at minimum power. A predecessor answers
+   `PKT_PAIR_ACK` with its ID → take **ID + 1**, remember the predecessor, go to CARRIED.
+   Nobody answers in 15 s → **ID 0**, first node, go to WAITING. Pairing is accepted only above
+   `PAIR_RSSI_MIN` (~−60 dBm): hand-to-hand distance, since the RFM95's lowest power still reaches
+   tens of meters.
+3. **WAITING** (node 0 on the ground, **not armed**): answers the first `PAIR_REQ` with its ID.
+   That event starts the **60 s arm timer**; tamper is live only after it. Challenges answered as
+   normal throughout.
+4. **CARRIED** (the leg): steps, heading histogram, Δaltitude from activation. Answers the first
+   `PAIR_REQ` it hears (the successor) — **that is its drop**: freeze the leg, send `PKT_DROP_REPORT`
+   back to the predecessor (power-stepped 5→10→20 dBm until `PKT_DROP_ACK`; no ack → LED error),
+   start the 60 s arm timer.
+5. **ARMED**: tamper live. Answers challenges with its own leg **plus the successor's leg** once the
+   successor has reported back. Both ends of every leg know it; a bricked puck in the middle
+   doesn't break the chain.
+6. A puck that already has a successor never answers another `PAIR_REQ` (no forks).
+7. **Last puck**: a dedicated build (`LAST=1`, different-color housing). It pairs like any other,
+   but no successor will come, so it ends its own leg by **stillness**: 60 s still → drop report
+   back + arm.
+8. **Bricked**: keys zeroized, bricked flag persisted, radio off. Triggered by tamper after
+   arming, a signed kill over LoRa, the tab re-inserted 10 s, or the dead-man timer.
+
+Timers are fixed at field values (15 s ask, 60 s arm); the demo is recorded, not live-timed.
+Emissions per drop: one report + one ack at the IP's position, ~100 ms each at SF9, plus the
+pairing exchange at minimum power. Accepted trade for chain redundancy.
 
 A CSAR element carries an **interrogator** (Pi + LoRa bridge + chain key). It sweeps a signed
 challenge, pucks answer in slots, and the chain is pushed to **ATAK** as CoT markers + a route.
@@ -80,16 +88,16 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
 - **Sleep-and-listen is the hardest piece. Timebox to Sat 22:00.** If it isn't working,
   run pucks always-on for the demo and state the duty-cycle math.
 
-### Chain linking and keys (decided Sat 17:45–18:00)
-- **ID assignment at activation, hand to hand.** New puck sends `PKT_PAIR_REQ` at
-  `LORA_PAIR_TX_DBM` (minimum; centimeters of range) for `PAIR_WINDOW_MS`. The adjacent puck,
-  already armed and listening, replies `PKT_PAIR_ACK {myPosition}`. New puck sets
-  `position = myPosition + 1`, stores `prevId = myPosition` in EEPROM, and that's who it will
-  drop-report to. No ack in the window → `position = 1`, anchor. `PUCK_ID` at flash time is
-  gone; all pucks are flashed identical. Chain key pre-shared; BLE + ECDH (as in the COA) is the
-  *production* key story.
-- Edge: if the neighbor is still in HANDLING (not yet armed) it must still answer PAIR_REQ, so
-  the pair listener runs in HANDLING and ARMED, not just ARMED.
+### Chain linking and keys (decided Sat 17:45–23:30; see the lifecycle above)
+- **ID assignment at activation, hand to hand.** `PKT_PAIR_REQ` for `PAIR_ASK_MS` (15 s) at
+  `LORA_PAIR_TX_DBM`; `PKT_PAIR_ACK {myId}` from the predecessor; new puck takes `myId + 1` and
+  stores `prevId`. No ack → ID 0. Accept only RSSI ≥ `PAIR_RSSI_MIN`. All pucks flashed identical
+  except the last (`LAST=1`). Chain key pre-shared; BLE + ECDH (as in the COA) is the *production*
+  key story.
+- **Arming is event-driven, not stillness-driven** (except the last puck): the first `PAIR_REQ`
+  a WAITING or CARRIED puck answers starts `ARM_DELAY_MS` (60 s). The old settle-by-stillness
+  path is gone from normal pucks.
+- The pair responder runs in WAITING and CARRIED only, and only until the puck has a successor.
 - **Backward drop report.** On settling, puck N+1 unicasts `PKT_DROP_REPORT` to puck N (RadioHead
   `to` byte = N) with `{steps, headingDeg, altDeltaM}`, signed. Puck N verifies, persists the
   pointer in EEPROM, and replies `PKT_DROP_ACK`. Sender power-steps 5→10→20 dBm, 3 tries each,

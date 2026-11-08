@@ -57,8 +57,9 @@ def sweep_once(ser: serial.Serial, key: bytes, chain_id: int, kill: bool = False
         if a.counter_echo != ctr:
             print(f"[sweep] stale echo from puck {a.puck_id}")
             continue
-        print(f"[sweep] puck {a.puck_id} elev={a.elev_m}m steps={a.steps} hdg={a.heading_deg} "
-              f"age={a.min_since_drop}min rssi={a.rssi}")
+        nxt = f"next={a.next_id}:{a.next_steps}/{a.next_heading}/{a.next_alt_delta}" if a.next_id is not None else "next=-"
+        print(f"[sweep] puck {a.puck_id}{' (unarmed)' if a.unarmed else ''} elev={a.elev_m}m "
+              f"leg={a.steps}/{a.heading_deg}/{a.alt_delta_m} {nxt} age={a.min_since_drop}min rssi={a.rssi}")
         answers.append(a)
     return answers
 

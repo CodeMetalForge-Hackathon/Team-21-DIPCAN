@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puck Link</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #0b0f14; color: #e8eef6; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  button { flex: 1 1 140px; padding: 16px; font-size: 16px; border: 0; border-radius: 8px; background: #1f6feb; color: #fff; }
+  button.warn { background: #b42318; }
+  button:disabled { background: #333; color: #777; }
+  .big { font-size: 56px; font-weight: 300; text-align: center; margin: 8px 0; }
+  .muted { color: #8a98b0; font-size: 13px; }
+  #log { font: 12px/1.4 ui-monospace, monospace; background: #111820; padding: 8px; border-radius: 6px; height: 160px; overflow: auto; white-space: pre-wrap; }
+  .hist { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; height: 48px; align-items: end; }
+  .hist div { background: #1f6feb; min-height: 2px; }
+  .hist div.top { background: #39ff8a; }
+</style>
+</head>
+<body>
+<h1>Puck Link <span class="muted" id="conn">— not connected</span></h1>
+
+<div class="row">
+  <button id="connect">Connect to puck</button>
+  <button id="activate" disabled>Activate</button>
+</div>
+
+<div class="big"><span id="hdg">—</span>°</div>
+<div class="muted" style="text-align:center">dominant heading this leg · <span id="steps">0</span> steps · <span id="samples">0</span> samples</div>
+<div class="hist" id="hist"></div>
+
+<div class="row" style="margin-top:12px">
+  <button id="start" disabled>Start leg</button>
+  <button id="drop" disabled>Dropped — send</button>
+</div>
+<div class="row">
+  <button id="status" disabled>Status</button>
+  <button id="kill" class="warn" disabled>Hold to KILL</button>
+</div>
+<div id="log"></div>
+
+<script>
+// Web Bluetooth + DeviceOrientation need a secure context. On the demo phone either serve this
+// over https, or open chrome://flags/#unsafely-treat-insecure-origin-as-secure and add the Pi's
+// http://10.42.0.1:8000 origin. Then: python3 -m http.server 8000 in interrogator/phone on the Pi.
+const NUS = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_RX = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const NUS_TX = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+const $ = id => document.getElementById(id);
+const log = s => { const el = $('log'); el.textContent += s + '\n'; el.scrollTop = el.scrollHeight; };
+
+let rx = null, device = null;
+let bins = new Array(16).fill(0), samples = 0, steps = 0, legRunning = false;
+let lastStepT = 0, above = false;
+const DECLINATION = -14;   // Boston: magnetic -> true. Change for the AO.
+
+for (let i = 0; i < 16; i++) $('hist').appendChild(document.createElement('div'));
+
+function dominant() {
+  if (!samples) return null;
+  let best = 0; bins.forEach((v, i) => { if (v > bins[best]) best = i; });
+  return (best * 22.5 + 11.25) % 360;
+}
+function render() {
+  const d = dominant(); $('hdg').textContent = d === null ? '—' : Math.round(d);
+  $('steps').textContent = steps; $('samples').textContent = samples;
+  const max = Math.max(1, ...bins); let best = bins.indexOf(Math.max(...bins));
+  [...$('hist').children].forEach((el, i) => { el.style.height = (bins[i] / max * 100) + '%'; el.className = i === best && samples ? 'top' : ''; });
+}
+
+// Compass: Android Chrome gives alpha in deviceorientationabsolute, 0 = north, increasing counter-clockwise.
+window.addEventListener('deviceorientationabsolute', e => {
+  if (!legRunning || e.alpha === null) return;
+  let hdg = (360 - e.alpha + DECLINATION + 360) % 360;
+  bins[Math.floor(hdg / 22.5) % 16]++; samples++;
+  if (samples % 10 === 0) render();
+});
+// Steps: peak detector on |a| (same rule as the puck firmware).
+window.addEventListener('devicemotion', e => {
+  if (!legRunning) return;
+  const a = e.accelerationIncludingGravity; if (!a) return;
+  const g = Math.hypot(a.x, a.y, a.z) / 9.81, t = performance.now();
+  if (!above && g > 1.15 && t - lastStepT > 300) { above = true; lastStepT = t; steps++; render(); }
+  if (above && g < 0.95) above = false;
+});
+
+async function send(cmd) {
+  if (!rx) { log('not connected'); return; }
+  await rx.writeValue(new TextEncoder().encode(cmd + '\n'));
+  log('> ' + cmd);
+}
+
+$('connect').onclick = async () => {
+  try {
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [NUS] }] });
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(NUS);
+    rx = await svc.getCharacteristic(NUS_RX);
+    const tx = await svc.getCharacteristic(NUS_TX);
+    await tx.startNotifications();
+    tx.addEventListener('characteristicvaluechanged', e => log('< ' + new TextDecoder().decode(e.target.value)));
+    device.addEventListener('gattserverdisconnected', () => { rx = null; $('conn').textContent = '— disconnected'; });
+    $('conn').textContent = '— ' + device.name;
+    ['activate', 'start', 'drop', 'status', 'kill'].forEach(id => $(id).disabled = false);
+    log('connected to ' + device.name);
+    if (DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission();
+  } catch (err) { log('connect failed: ' + err.message); }
+};
+$('activate').onclick = () => send('ACTIVATE');
+$('status').onclick = () => send('STATUS');
+$('start').onclick = () => { bins.fill(0); samples = 0; steps = 0; legRunning = true; render(); log('leg started — walk'); };
+$('drop').onclick = async () => {
+  legRunning = false;
+  const d = dominant();
+  if (d !== null) await send('HEADING ' + Math.round(d));
+  await send('STEPS ' + steps);
+  log(`leg sent: ${Math.round(d ?? -1)}°, ${steps} steps`);
+};
+let killTimer = null;
+$('kill').onpointerdown = () => { killTimer = setTimeout(() => send('KILL'), 3000); $('kill').textContent = 'keep holding…'; };
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => $('kill').addEventListener(ev, () => { clearTimeout(killTimer); $('kill').textContent = 'Hold to KILL'; }));
+render();
+</script>
+</body>
+</html>

@@ -25,10 +25,22 @@
 #define LISTEN_IDLE_SLEEP  0         // 0 = receiver always on (PoC). 1 = windowed wake-on-radio: not yet
                                      //     working with the bridge's long preamble; revisit after the PoC.
 #define SLOT_MS            400
-#define PAIR_WINDOW_MS     (10UL * 1000)
-#define ARM_GRACE_MS       (10UL * 1000)
 #define SUSPICIOUS_MS      2000
 #define TAMPER_ALONE_MS    10000
+
+// ---- chain lifecycle (CLAUDE.md "Chain lifecycle"). Field values; the demo is recorded. ----
+#define PAIR_ASK_MS        (15UL * 1000)   // broadcast PAIR_REQ this long; nobody answers -> I am node 0
+#define PAIR_REQ_PERIOD_MS 1000            // PAIR_REQ repeat period during ASK
+#define PAIR_RESPOND_MS    (20UL * 1000)   // keep answering the successor's PAIR_REQs this long after the first (lost ACKs)
+#define PAIR_RSSI_MIN      (-60)           // dBm; pairing must be hand-to-hand. Ignored on the serial transport.
+#define ARM_DELAY_MS       (60UL * 1000)   // from "successor paired" (= my drop) to tamper live
+#define DROP_ACK_WAIT_MS   1500            // wait for DROP_ACK after each report attempt
+#define DROP_POWERS        { 5, 10, 20 }   // dBm steps for the drop report
+#define DROP_TRIES         3               // attempts per power step
+#define LAST_STILL_MS      (60UL * 1000)   // LAST build: still this long while carried = dropped
+#ifndef IS_LAST
+#define IS_LAST            0               // build.sh: LAST=1 for the final (different-colour) puck
+#endif
 
 // ---- tamper thresholds -----------------------------------------------------
 #define TILT_DEG           15.0f
@@ -53,19 +65,53 @@
 #endif
 #define LORA_PAIR_TX_DBM   2
 
+// ---- phone link (ESP32-S3 BLE bridge on Serial1) — parked; IMU does heading now ----------
+#ifndef HAS_PHONE_LINK
+#define HAS_PHONE_LINK     0         // Serial1 = TX GPIO0 / RX GPIO1 on the Feather RP2040 RFM95 (build.sh: PHONE=1)
+#endif
+#define PHONE_BAUD         9600
+
 // ---- pins ------------------------------------------------------------------
 #define PIN_RF_CS          16
 #define PIN_RF_RST         17
 #define PIN_RF_DIO0        21
-#define PIN_HALL           6         // Grove Hall: LOW near magnet
+#define PIN_HALL           6         // Grove Hall (A1104): LOW near magnet. Grove magnetic (reed) switch: HIGH near magnet.
+#ifndef HALL_ACTIVE_LOW
+#define HALL_ACTIVE_LOW    1         // 1 = Hall sensor, 0 = reed switch (build.sh: REED=1)
+#endif
+// Pull-tab mode (build.sh: TAB=1): a jumper from D6 to 3V3 is the "tab". Tab IN (HIGH) = dormant.
+// Pull it (LOW) = activate. Re-insert and hold 10 s = IP kill. No sensor at all.
+#ifndef PULL_TAB
+#define PULL_TAB           0
+#endif
+#define TAB_PULL_MS        300       // LOW this long after being HIGH = tab pulled
+#define TAB_ABSENT_BOOT_MS 2000      // never saw a tab after boot for this long = treat as pulled
 #define HALL_TAP_MS        300       // magnet present this long = activate (debounce)
 #define HALL_KILL_MS       10000     // magnet held this long after activation = IP kill
+#define HALL_RELEASE_MS    400       // a gap shorter than this doesn't end the hold (reed contact flickers)
 #define PUCK_LED           LED_BUILTIN   // (PIN_LED is taken by the RP2040 core)
 
 // ---- sensors ---------------------------------------------------------------
-#define HAS_BARO           1         // BME688 on STEMMA QT, 0x77
-#define HAS_ACCEL          0         // MMA7660 on the same I2C bus, 0x4C — flip when wired
-#define ACCEL_HZ           32
+#ifndef HAS_BARO
+#define HAS_BARO           1         // BME688 on STEMMA QT, 0x77 (build.sh: BARO=0 for a puck without one)
+#endif
+#ifndef HAS_ACCEL
+#define HAS_ACCEL          0         // MMA7660 on the same I2C bus, 0x4C (build.sh: ACCEL=1). Superseded by HAS_IMU.
+#endif
+#ifndef HAS_IMU
+#define HAS_IMU            0         // Grove IMU 9DOF: ICM20600 accel/gyro 0x69 + AK09918 mag 0x0C (build.sh: IMU=1)
+#endif
+#define ACCEL_HZ           50        // main loop target; real rate ~40 Hz with I2C reads
+
+// ---- dead reckoning (HAS_IMU) ---------------------------------------------
+#define STEP_HIGH_G        1.15f     // |a| must rise above this ...
+#define STEP_LOW_G         0.95f     // ... after having dipped below this
+#define STEP_MIN_MS        300       // and no sooner than this after the last step
+#define HEADING_SAMPLE_MS  100       // histogram sample period while carried
+#define HEADING_BINS       16        // 22.5 deg sectors
+#define MAG_CALIB_MS       20000     // tumble window for hard-iron calibration ("CALIB" command)
+#define MAG_CALIB_MIN_SPAN 70        // uT; each axis must swing at least this much (field ~52 uT -> full tumble ~100)
+#define DECLINATION_DEG    (-14)     // Boston: magnetic -> true. Set for the AO.
 
 // ---- identity / key --------------------------------------------------------
 // Pre-shared for the hackathon. Pass at compile time:
@@ -76,6 +122,4 @@
 #ifndef CHAIN_ID
 #define CHAIN_ID 1
 #endif
-#ifndef PUCK_ID
-#define PUCK_ID 1                    // chain position, 1 = first anchor
-#endif
+// PUCK_ID is no longer baked in: IDs come from pairing (node 0 = heard nobody for 15 s).

@@ -15,8 +15,8 @@ MCAST_PORT = 6969
 STALE_MIN = 30
 
 # CoT types: friendly ground = a-f-G; hostile ground = a-h-G; unknown = a-u-G
-_TYPE = {"answered": "a-f-G-U-C", "silent": "a-u-G", "tampered": "a-h-G", "killed": "a-n-G"}
-_COLOR = {"answered": "-16711936", "silent": "-7829368", "tampered": "-65536", "killed": "-7829368"}
+_TYPE = {"answered": "a-f-G-U-C", "unarmed": "a-f-G-U-C", "pointer-only": "a-u-G", "silent": "a-u-G", "tampered": "a-h-G", "killed": "a-n-G"}
+_COLOR = {"answered": "-16711936", "unarmed": "-256", "pointer-only": "-7829368", "silent": "-7829368", "tampered": "-65536", "killed": "-7829368"}
 
 
 def _iso(dt: datetime) -> str:

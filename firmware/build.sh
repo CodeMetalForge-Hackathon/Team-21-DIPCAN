@@ -17,8 +17,16 @@ case "${1:-puck}" in
   puck)
     ID="${2:-1}"; T="${3:-serial}"; PORT="${4:-$(port_auto)}"
     LORA=0; [ "$T" = "lora" ] && LORA=1
-    FLAGS="-I$ROOT/firmware/common -DCHAIN_KEY_HEX=\"$KEY\" -DCHAIN_ID=$CHAIN -DPUCK_ID=$ID -DTRANSPORT_LORA=$LORA"
-    arduino-cli compile --fqbn "$FQBN_PUCK" "$ROOT/firmware/puck_feather" --build-property "build.extra_flags=$FLAGS"
+    # Optional env: IMU=1 (Grove 9DOF wired), ACCEL=1 (MMA7660 instead), BARO=0 (no BME688), PHONE=1 (XIAO BLE bridge),
+    #               REED=1 (Grove magnetic switch on D6 instead of the Hall sensor: active HIGH)
+    # -DBUFFER_LENGTH=32: Seeed's I2Cdev expects the AVR Wire constant; RP2040 core doesn't define it.
+    #               TAB=1 (pull-tab: jumper D6->3V3 in = dormant, pulled = activate, re-inserted 10 s = kill)
+    #               LAST=1 (the final puck: ends its leg by stillness, never answers PAIR_REQ)
+    # The <id> argument is now just a label for the flash log; ids are assigned by pairing.
+    ACTLOW=1; [ "${REED:-0}" = "1" ] && ACTLOW=0
+    FLAGS="-I$ROOT/firmware/common -DBUFFER_LENGTH=32 -DCHAIN_KEY_HEX=\"$KEY\" -DCHAIN_ID=$CHAIN -DTRANSPORT_LORA=$LORA -DHAS_IMU=${IMU:-0} -DHAS_ACCEL=${ACCEL:-0} -DHAS_BARO=${BARO:-1} -DHAS_PHONE_LINK=${PHONE:-0} -DHALL_ACTIVE_LOW=$ACTLOW -DPULL_TAB=${TAB:-0} -DIS_LAST=${LAST:-0}"
+    # --library: vendored, RP2040-patched Grove IMU driver takes priority over any globally installed copy
+    arduino-cli compile --fqbn "$FQBN_PUCK" "$ROOT/firmware/puck_feather" --library "$ROOT/firmware/lib/Grove_IMU_9DOF" --build-property "build.extra_flags=$FLAGS"
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN_PUCK" -p "$PORT" "$ROOT/firmware/puck_feather"
     ;;
   bench)
@@ -33,5 +41,13 @@ case "${1:-puck}" in
     arduino-cli compile --fqbn "$FQBN" "$ROOT/firmware/bridge_feather"
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN" -p "$PORT" "$ROOT/firmware/bridge_feather"
     ;;
-  *) echo "usage: build.sh puck [id] [lora|serial] [port] | bench [port] | bridge [rp2040] [port]"; exit 1 ;;
+  ble)
+    # ESP32-S3 BLE<->UART bridge. XIAO ESP32S3 Plus by default. Other S3 boards via FQBN_BLE, e.g.
+    #   FQBN_BLE=esp32:esp32:XIAO_ESP32S3 firmware/build.sh ble
+    FQBN="${FQBN_BLE:-esp32:esp32:XIAO_ESP32S3_Plus}"
+    PORT="${2:-$(arduino-cli board list 2>/dev/null | awk '/ESP32|XIAO|usbmodem/ && !/Feather/{print $1; exit}')}"
+    arduino-cli compile --fqbn "$FQBN" "$ROOT/firmware/ble_bridge_esp32"
+    [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN" -p "$PORT" "$ROOT/firmware/ble_bridge_esp32"
+    ;;
+  *) echo "usage: build.sh puck [id] [lora|serial] [port] | bench [port] | bridge [rp2040] [port] | ble [port]"; exit 1 ;;
 esac
