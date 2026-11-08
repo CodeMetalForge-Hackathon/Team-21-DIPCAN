@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DIPCAN Hardware Teardown</title>
+<link rel="stylesheet" href="../page/lib/fonts/fonts.css">
+<style>
+/* Local fonts: same faces as ../page/lib/fonts/fonts.css, with paths that resolve from this folder. */
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:block;src:url(../page/lib/fonts/IBMPlexMono-400.woff2) format('woff2');}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:block;src:url(../page/lib/fonts/IBMPlexMono-500.woff2) format('woff2');}
+@font-face{font-family:'Saira';font-style:normal;font-weight:300;font-display:block;src:url(../page/lib/fonts/Saira-300.woff2) format('woff2');}
+@font-face{font-family:'Saira';font-style:normal;font-weight:500;font-display:block;src:url(../page/lib/fonts/Saira-500.woff2) format('woff2');}
+@font-face{font-family:'Saira';font-style:normal;font-weight:600;font-display:block;src:url(../page/lib/fonts/Saira-600.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:400;font-display:block;src:url(../page/lib/fonts/Inter-400.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:500;font-display:block;src:url(../page/lib/fonts/Inter-500.woff2) format('woff2');}
+@font-face{font-family:'Inter';font-style:normal;font-weight:600;font-display:block;src:url(../page/lib/fonts/Inter-600.woff2) format('woff2');}
+/* The 3D scene is the whole screen. Title top left, callouts pinned to the side gutters with leader
+   lines, one control dock at the bottom. Dark studio only. */
+:root{ color-scheme:dark; --bg:#05070c; --bg-hi:#0e1830; --ink:#eef3fb; --muted:#8a98b0; --accent:#4d8dff; --warn:#ffb44a;
+  --line:rgba(140,170,220,.28); --display:"Saira","Helvetica Neue",Arial,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace; --text:"Inter","Helvetica Neue",Arial,sans-serif; }
+*{box-sizing:border-box} html,body{height:100%;margin:0}
+body{background:radial-gradient(120% 80% at 50% 38%,var(--bg-hi) 0%,var(--bg) 62%) var(--bg);color:var(--ink);font-family:var(--display);overflow:hidden;-webkit-user-select:none;user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab} #gl:active{cursor:grabbing}
+#lines{position:fixed;inset:0;width:100%;height:100%;pointer-events:none} #lines polyline{fill:none;stroke:var(--line);stroke-width:1} #lines circle{fill:var(--accent)}
+.hud{position:fixed;left:16px;top:14px;right:16px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+.eyebrow{font:500 10px/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--accent)}
+h1{margin:8px 0 0;font:300 clamp(22px,5.4vw,40px)/1 var(--display);letter-spacing:.04em;text-transform:uppercase} h1 b{font-weight:600}
+.chip{font:500 9px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--warn);border:1px solid rgba(255,180,74,.4);padding:6px 8px;white-space:nowrap}
+.co{position:fixed;max-width:34vw;pointer-events:none;background:rgba(5,7,12,.42);padding:3px 6px;border-radius:2px} .co.r{text-align:right}
+.co .t{font:500 13px/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase} .co .s{font:400 10.5px/1.35 var(--text);color:var(--muted);margin-top:2px} .co .s.tbd{color:var(--warn)} .co .s.m{font:400 9px/1.3 var(--mono);color:#6b7890;letter-spacing:.02em;margin-top:2px}
+.dock{position:fixed;left:0;right:0;bottom:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(5,7,12,.86) 34%);display:flex;flex-direction:column;gap:12px}
+.cap{display:flex;gap:12px;align-items:baseline;max-width:760px} .num{font:300 34px/1 var(--display);color:var(--accent);font-variant-numeric:tabular-nums}
+.ttl{font:600 20px/1.1 var(--display);letter-spacing:.08em;text-transform:uppercase} .sub{font:400 13px/1.45 var(--text);color:var(--muted);margin-top:3px}
+.row{display:flex;gap:12px;align-items:center} .note{font:400 9px/1.4 var(--mono);letter-spacing:.06em;color:var(--muted);max-width:760px;order:3}
+.btn{flex:none;width:44px;height:44px;border:1px solid var(--line);background:rgba(10,16,28,.7);color:var(--ink);font:500 13px/1 var(--mono);cursor:pointer;border-radius:50%}
+.btn.play{width:auto;padding:0 18px;border-radius:22px;background:var(--accent);border-color:var(--accent);color:#fff;letter-spacing:.12em} .btn:hover{border-color:var(--accent)}
+.track{position:relative;flex:1;height:44px;touch-action:none;cursor:pointer;min-width:0;margin:0 8px} .track::before{content:"";position:absolute;left:0;right:0;top:21px;height:2px;background:var(--line)}
+.fill{position:absolute;left:0;top:21px;height:2px;background:var(--accent);box-shadow:0 0 10px var(--accent)} .knob{position:absolute;top:14px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#fff;box-shadow:0 0 14px var(--accent)}
+.tick{position:absolute;top:8px;width:28px;height:28px;margin-left:-14px;padding:0;border:0;background:none;cursor:pointer}
+.tick::after{content:"";position:absolute;left:10px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--bg);border:1px solid var(--muted)} .tick[aria-current="true"]::after{border-color:var(--accent);background:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fail{position:fixed;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);font:400 13px/1.5 var(--mono)}
+/* comparison table, step 6 only */
+.diff{position:fixed;right:16px;top:50%;transform:translateY(-54%);width:min(50vw,720px);pointer-events:none;opacity:0;background:rgba(5,7,12,.72);border:1px solid var(--line);border-radius:4px;padding:10px 12px}
+.diff table{width:100%;border-collapse:collapse;font:400 12px/1.35 var(--mono)} .diff th{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--accent);text-align:left;padding:4px 6px 8px}
+.diff td{padding:5px 6px;border-top:1px solid rgba(140,170,220,.14);vertical-align:top;color:var(--ink)} .diff td:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:9.5px;white-space:nowrap} .diff td.tbd{color:var(--warn)}
+@media (min-width:900px){.dock{padding-left:32px;padding-right:32px}.hud{left:32px;right:32px;top:24px}.co{max-width:260px}.co .t{font-size:15px}.co .s{font-size:11px}.diff{right:32px}.diff table{font-size:15px}.diff th{font-size:12px}.diff td:first-child{font-size:11px}}
+@media (max-width:899px){.diff{left:16px;right:16px;width:auto;top:auto;bottom:150px;transform:none}}
+</style>
+</head>
+<body>
+<canvas id="gl" aria-label="3D model of the DIPCAN dipcan and finder kit. Drag to rotate, pinch to zoom."></canvas>
+<svg id="lines" aria-hidden="true"></svg>
+<div id="labels"></div>
+<div class="hud"><div><div class="eyebrow">DIPCAN · Team 21</div><h1><b>Hardware</b> teardown</h1></div><div class="chip" id="chip">Demo build</div></div>
+<div class="diff" id="diff"></div>
+<div class="dock" id="dock">
+  <div class="cap"><div class="num" id="num">01</div><div><div class="ttl" id="ttl"></div><div class="sub" id="sub"></div></div></div>
+  <div class="note">Demo parts are the boards on the table. Production parts follow the COA 3 brief. Amber marks a part not wired in the demo or a production value still to be decided. The small gray line under a callout is the part name.</div>
+  <div class="row">
+    <button class="btn" id="prev" aria-label="Previous step">&#9664;</button><button class="btn play" id="play">PLAY</button><button class="btn" id="next" aria-label="Next step">&#9654;</button>
+    <div class="track" id="track" role="slider" aria-label="Scrub the teardown" aria-valuemin="0" aria-valuemax="7" aria-valuenow="0" tabindex="0"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+function fail(msg){ const d=document.createElement('div'); d.className='fail'; d.textContent=msg; document.body.appendChild(d); }
+if(!window.THREE){ fail('The 3D library did not load. Check the connection and reload.'); return; }
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PI = Math.PI, NS = 8;
+
+/* ---------- renderer ---------- */
+let renderer;
+try{ renderer = new THREE.WebGLRenderer({canvas:$('gl'), antialias:true, alpha:true}); }
+catch(e){ fail('This browser could not start WebGL, so the 3D model cannot be shown.'); return; }
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.fog = new THREE.Fog(0x05070c, 60, 160);
+const cam = new THREE.PerspectiveCamera(30, 1, .1, 600);
+(function(){ /* studio environment from a few light panels */
+  const env = new THREE.Scene();
+  const panel = (c,w,h,x,y,z) => { const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({color:c,side:THREE.DoubleSide})); m.position.set(x,y,z); m.lookAt(0,0,0); env.add(m); };
+  env.background = new THREE.Color(0x04060a);
+  panel(0xc9d2e2,12,6,0,12,4); panel(0x9fc0ff,5,16,-14,2,-4); panel(0x2f6bff,4,18,14,3,-8); panel(0xffd9a8,8,3,8,4,12); panel(0x0c1322,40,40,0,-10,0);
+  const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, .04).texture; pm.dispose();
+})();
+scene.add(new THREE.HemisphereLight(0x9db8ff, 0x0a0c12, .22));
+const key = new THREE.DirectionalLight(0xfff2e0, 1.25); key.position.set(30,45,30); key.castShadow = true;
+key.shadow.mapSize.set(2048,2048); key.shadow.bias = -.0006; key.shadow.radius = 4;
+Object.assign(key.shadow.camera,{left:-60,right:60,top:60,bottom:-60,near:1,far:160}); key.target.position.set(30,2,0); scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0x3d7bff, 1.0); rim.position.set(-30,20,-40); scene.add(rim);
+
+/* floor */
+function radial(inner, outer){ const c=document.createElement('canvas'); c.width=c.height=256; const g=c.getContext('2d'); const gr=g.createRadialGradient(128,128,0,128,128,128); gr.addColorStop(0,inner); gr.addColorStop(1,outer); g.fillStyle=gr; g.fillRect(0,0,256,256); return new THREE.CanvasTexture(c); }
+const pool = new THREE.Mesh(new THREE.CircleGeometry(70,64), new THREE.MeshBasicMaterial({map:radial('rgba(60,110,220,.30)','rgba(60,110,220,0)'),transparent:true,depthWrite:false})); pool.rotation.x=-PI/2; pool.position.set(30,.004,0); scene.add(pool);
+const grid = new THREE.GridHelper(300,150,0x1b3260,0x12203c); grid.material.transparent=true; grid.material.opacity=.5; grid.position.set(30,.002,0); scene.add(grid);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600,600), new THREE.ShadowMaterial({opacity:.55})); ground.rotation.x=-PI/2; ground.position.x=30; ground.receiveShadow=true; scene.add(ground);
+
+/* ---------- materials ---------- */
+const M = (c,metal,rough,x) => new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:metal,roughness:rough},x||{}));
+const E = (c,i) => new THREE.MeshStandardMaterial({color:0x000000,emissive:c,emissiveIntensity:i||2.2,toneMapped:false});
+const mt = {
+  plastic: M(0x1a1d24,.1,.6,{envMapIntensity:.5}), plasticClear: M(0x8a98b0,.05,.45,{transparent:true,opacity:.22,envMapIntensity:.25,depthWrite:false}),
+  alu: M(0xc3cad6,1,.28), aluDark: M(0x4b525e,1,.38), black: M(0x0a0b0e,.4,.45), steel: M(0x1b1e24,.9,.42),
+  pcb: M(0x0b3a30,.3,.55), pcbBlue: M(0x14295e,.3,.5), chip: M(0x15171c,.6,.35), gold: M(0xd2a646,1,.25), copper: M(0xc47a45,1,.25),
+  pouch: M(0x9c9c9c,.6,.5), label: M(0xdfe5ee,0,.7), red: M(0xd23a2a,.2,.45), white: M(0xe6e9ef,.1,.5), cable: M(0x2f6bff,.1,.5),
+  pcbBlack: M(0x111317,.3,.55), tan: M(0xd8c08a,.1,.6), red2: M(0xc8322a,.1,.55), yellow: M(0xe8c93a,.1,.6), resin: M(0x3a2e22,.05,.62), resinDark: M(0x241c15,.05,.7), cell: M(0xb9bec8,.9,.35), amber: M(0xffb44a,.2,.5,{emissive:0x5a3a00,emissiveIntensity:.6}),
+  glass: M(0x0d1420,.2,.15,{envMapIntensity:1.2}), ledG: E(0x39ff8a), ledB: E(0x4d8dff,2.6), ledA: E(0xffb44a),
+};
+function screenTex(){ const c=document.createElement('canvas'); c.width=256; c.height=512; const g=c.getContext('2d'); g.fillStyle='#0b1220'; g.fillRect(0,0,256,512); g.strokeStyle='#1b2a44'; for(let i=0;i<16;i++){ g.beginPath(); g.moveTo(0,i*32); g.lineTo(256,i*32); g.stroke(); g.beginPath(); g.moveTo(i*32,0); g.lineTo(i*32,512); g.stroke(); }
+  g.fillStyle='#121a2b'; g.fillRect(0,0,256,44); g.fillStyle='#eef3fb'; g.font='600 20px Arial'; g.fillText('ATAK',12,30); g.fillStyle='#39ff8a'; [[120,300],[150,250],[175,205]].forEach(p=>{ g.beginPath(); g.arc(p[0],p[1],7,0,7); g.fill(); }); g.strokeStyle='#ffd84a'; g.lineWidth=3; g.beginPath(); g.moveTo(120,300); g.lineTo(150,250); g.lineTo(175,205); g.stroke();
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return t; }
+mt.screen = new THREE.MeshStandardMaterial({color:0,emissive:0xffffff,emissiveMap:screenTex(),emissiveIntensity:1.1,toneMapped:false,roughness:.3});
+
+/* ---------- builders (1 unit = 1 cm) ---------- */
+function B(p,w,h,d,m,x,y,z){ const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m); o.position.set(x||0,y||0,z||0); o.castShadow=o.receiveShadow=true; p.add(o); return o; }
+function C(p,r,len,m,axis,x,y,z,seg){ const g=new THREE.CylinderGeometry(r,r,len,seg||32); if(axis==='x')g.rotateZ(PI/2); if(axis==='z')g.rotateX(PI/2); const o=new THREE.Mesh(g,m); o.position.set(x||0,y||0,z||0); o.castShadow=o.receiveShadow=true; p.add(o); return o; }
+function G(p,x,y,z){ const g=new THREE.Group(); g.position.set(x||0,y||0,z||0); p.add(g); return g; }
+function helix(p,r,turns,len,tube,m,x,y,z){ const pts=[]; const n=20*turns; for(let i=0;i<=n;i++){ const a=i/n*turns*PI*2; pts.push(new THREE.Vector3(Math.cos(a)*r,i/n*len,Math.sin(a)*r)); } const o=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),n*2,tube,8,false),m); o.position.set(x,y,z); o.castShadow=true; p.add(o); return o; }
+function spring(p,x,y,z){ const g=G(p,x,y,z); C(g,.04,.45,mt.copper,'y',0,.22,0,8); helix(g,.275,9,1.25,.04,mt.copper,0,.45,0); return g; }
+function tube(p,pts,r,m){ const o=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(q=>new THREE.Vector3(...q))),32,r,8,false),m); o.castShadow=true; p.add(o); return o; }
+function feather(p, variant){ /* Adafruit Feather: 51 x 23 mm, RFM95 can, USB-C or micro USB, headers */
+  const g=G(p); B(g,5.1,.16,2.3,mt.pcbBlack,0,0,0);
+  B(g,1.6,.3,1.6,mt.alu,-1.75,.23,0); /* RFM95 radio can, flush with the end opposite USB */ B(g,.9,.2,.9,mt.chip,.3,.18,.1); /* MCU */
+  if(variant==='rp2040') B(g,.7,.32,.89,mt.alu,2.2,.24,.15); else B(g,.6,.25,.75,mt.alu,2.25,.2,.15); /* USB-C or micro-B */ B(g,.5,.4,.8,mt.tan,2.1,.28,-.75); /* JST-PH battery, tan */
+  for(let i=0;i<16;i++){ B(g,.12,.2,.12,mt.gold,-2.2+i*.29,.18,1.0); if(i<12) B(g,.12,.2,.12,mt.gold,-2.2+i*.29,.18,-1.0); }
+  B(g,.15,.1,.1,mt.ledG,1.4,.22,.9); if(variant==='rp2040') B(g,.5,.1,.5,mt.chip,.6,.1,-.5);
+  return g; }
+function buildDemoPuck(){ /* Feather RP2040 RFM95 in a plastic Pi case with BME688, antenna, LiPo, and a wake wire to cut */
+  const g=new THREE.Group(); const P={};
+  P.box=G(g,0,1.5,0); B(P.box,9.6,.3,6.6,mt.plastic,0,-1.35,0); B(P.box,.3,3.2,6.6,mt.plastic,-4.65,.1,0); B(P.box,.3,3.2,6.6,mt.plastic,4.65,.1,0); B(P.box,9.0,3.2,.3,mt.plastic,0,.1,-3.15); B(P.box,9.0,3.2,.3,mt.plastic,0,.1,3.15); /* open box: floor and four walls, 96 by 66 by 32 mm */
+  P.lid=G(g,0,3.35,0); B(P.lid,9.6,.3,6.6,mt.plasticClear,0,0,0); B(P.lid,8.8,.08,5.8,mt.plasticClear,0,.19,0);
+  P.feather=G(g,0,1.3,.4); feather(P.feather,'rp2040');
+  P.ant=spring(P.feather,-2.2,.08,-1.0); /* Adafruit 4269 at the ANT pad, far corner from USB on the 12-pin row */
+  P.bme=G(g,3.3,1.3,-2.0); B(P.bme,2.5,.14,1.8,mt.pcbBlack,0,0,0); B(P.bme,.3,.12,.3,mt.chip,.2,.13,0); B(P.bme,.3,.3,.5,mt.black,-1.0,.2,0); B(P.bme,.3,.3,.5,mt.black,1.0,.2,0);
+  P.cable=G(g); [[mt.black,0],[mt.red2,.07],[mt.cable,.14],[mt.yellow,.21]].forEach(([m,o])=>tube(P.cable,[[1.2,1.45+o*.3,-.65+o],[1.8,1.85+o*.3,-1.6+o],[2.2,1.7+o*.3,-2.0+o]],.035,m)); B(P.cable,.45,.22,.3,mt.black,1.15,1.45,-.6); B(P.cable,.3,.22,.45,mt.black,2.25,1.7,-2.0); /* STEMMA QT: four wires, JST SH plugs */
+  P.lipo=G(g,0,.75,-.2); B(P.lipo,6.2,.5,3.4,mt.pouch,0,0,0); B(P.lipo,2.8,.02,1.6,mt.label,0,.26,0); tube(P.lipo,[[3.1,0,-.6],[3.6,.3,-.5],[3.3,.75,-.2]],.045,mt.red2); tube(P.lipo,[[3.1,0,-.75],[3.65,.3,-.65],[3.35,.75,-.35]],.045,mt.black); B(P.lipo,.4,.3,.5,mt.white,3.3,.85,-.28); /* 62 x 34 x 5 mm, two-wire lead to a white JST-PH plug */
+  P.wire=G(g); tube(P.wire,[[-1.04,1.5,1.4],[-1.02,1.95,1.75],[-.9,2.15,2.0],[-.78,1.95,1.75],[-.75,1.5,1.4]],.04,mt.red2); tube(P.wire,[[-1.04,1.5,1.4],[-1.1,1.9,1.78],[-.9,2.08,2.08],[-.7,1.9,1.78],[-.75,1.5,1.4]],.04,mt.red2); P.wireDot=G(g,-.9,2.15,2.0); /* wake wire: a 20 mm jumper loop on two header pins */
+  P.imu=G(g,3.5,1.3,1.0); B(P.imu,2.0,.14,4.0,mt.pcbBlue,0,0,0); B(P.imu,.3,.12,.3,mt.chip,-.3,.13,-.6); B(P.imu,.25,.1,.25,mt.chip,.35,.12,.2); B(P.imu,.3,.3,.5,mt.white,0,.2,1.7); /* Seeed Grove IMU 9DOF: ICM20600 + AK09918, 4-pin Grove, 20 x 40 mm */
+  tube(g,[[3.5,1.5,2.0],[3.9,1.9,2.6],[2.7,1.9,-2.4],[2.4,1.7,-2.0]],.05,mt.cable); /* Grove lead to the same I2C bus */
+  return {g,P}; }
+function buildInterrogator(){ /* Pi 5 in a Flirc case, Feather 32u4 bridge, Galaxy A17 with ATAK, Belkin power bank */
+  const g=new THREE.Group(); const P={};
+  P.pi=G(g,0,1.3,0); B(P.pi,9.0,2.6,6.5,mt.alu,0,0,0); B(P.pi,9.1,.5,6.6,mt.black,0,-1.05,0); B(P.pi,9.1,.4,6.6,mt.black,0,1.1,0); for(let i=0;i<2;i++) B(P.pi,1.4,1.3,1.6,mt.aluDark,4.52,-.2,-1.6+i*1.9); B(P.pi,1.6,1.35,2.1,mt.aluDark,4.55,-.3,2.0); /* RJ45 beside the USB stacks */ B(P.pi,.9,.3,.9,mt.aluDark,-4.52,-.4,1.6); B(P.pi,.3,.1,.3,mt.ledG,-4.5,.2,-2.4);
+  P.lead=tube(g,[[4.6,1.1,-.5],[7.5,1.4,.9],[10.5,.5,1.6],[12.6,.3,1.2]],.14,mt.black);
+  P.bridge=G(g,15.0,.3,1.2); feather(P.bridge,'32u4'); P.bridgeAnt=spring(P.bridge,-2.2,.08,-1.0);
+  P.phone=G(g,0,.4,10.5); B(P.phone,7.8,.75,16.4,M(0x14161c,.7,.4),0,0,0); const s=new THREE.Mesh(new THREE.PlaneGeometry(7.2,15.4),mt.screen); s.rotation.x=-PI/2; s.position.y=.39; P.phone.add(s); B(P.phone,.3,.06,.3,mt.black,2.6,.39,-7.2);
+  P.bank=G(g,0,.8,-9.0); B(P.bank,7.0,1.6,14.7,M(0x1e2129,.3,.5),0,0,0); B(P.bank,.9,.4,.3,mt.aluDark,-2.2,0,7.36); B(P.bank,.9,.4,.3,mt.aluDark,-.6,0,7.36); for(let i=0;i<4;i++) B(P.bank,.25,.06,.25,i<3?mt.ledG:mt.black,-1.4+i*.6,.81,5.9); /* about 147 x 70 x 16 mm */
+  P.bankLead=tube(g,[[-3.5,.6,-3.0],[-5.5,1.0,-1.0],[-4.6,.9,1.6]],.14,mt.black);
+  return {g,P}; }
+function buildProdPuck(){ /* bottle cap: 32 mm by 10 mm, sealed shell, face down */
+  const g=new THREE.Group(); const P={}; const R=1.6,H=1.0;
+  P.shell=G(g,0,.5,0); C(P.shell,R,H,mt.resin,'y',0,0,0,64); const ring=new THREE.Mesh(new THREE.TorusGeometry(R-.06,.06,10,64),mt.resinDark); ring.rotation.x=PI/2; ring.position.y=-H/2+.02; P.shell.add(ring); P.shell.children[0].material=mt.resin.clone(); P.shell.children[0].material.transparent=true;
+  P.mark=new THREE.Mesh(new THREE.BoxGeometry(.42,.06,.14),M(0xd01f1f,.05,.5,{emissive:0x6a0000,emissiveIntensity:.9})); P.mark.position.set(R-.1,H/2+.01,0); P.mark.rotation.y=0; P.shell.add(P.mark); /* red paint on the last dipcan in the vest */
+  P.pcb=G(g,0,.42,0); C(P.pcb,R*.86,.08,mt.pcb,'y',0,0,0,64); for(let i=0;i<8;i++) B(P.pcb,.07,.02,.07,mt.gold,-.6+i*.17,.05,-.95);
+  P.mcu=G(g,.3,.6,-.35); B(P.mcu,1.32,.24,1.25,mt.alu,0,0,0); B(P.mcu,1.2,.02,1.1,mt.label,0,.13,0); /* bare ESP32-C6 module, 13.2 x 12.5 x 2.4 mm */
+  P.lora=G(g,-.55,.62,.75); B(P.lora,1.0,.22,.75,mt.chip,0,0,0); B(P.lora,.9,.03,.65,mt.alu,0,.13,0); /* SX1262 */
+  P.tab=G(g,2.1,.385,0); B(P.tab,3.0,.02,.8,mt.yellow,0,0,0); /* insulating pull tab between the coin cell and its contact, sticking out of the shell */
+  P.baro=G(g,-1.05,.6,-.2); B(P.baro,.25,.12,.25,mt.chip,0,0,0); B(P.baro,.07,.02,.07,mt.black,0,.07,0);
+  P.accel=G(g,1.15,.6,-.1); B(P.accel,.3,.1,.3,mt.chip,0,0,0);
+  P.mag=G(g,.55,.6,.95); B(P.mag,.25,.1,.25,mt.amber,0,0,0);
+  P.light=G(g,-.4,.6,-1.0); C(P.light,.12,.1,mt.glass,'y',0,0,0,16);
+  P.cell=G(g,0,.21,0); C(P.cell,1.0,.32,mt.cell,'y',0,0,0,64); C(P.cell,.75,.02,mt.alu,'y',0,.17,0,48); /* CR2032 */
+  P.motor=G(g,-.85,.3,-.7); C(P.motor,.5,.3,mt.steel,'y',0,0,0,32); C(P.motor,.3,.04,mt.copper,'y',0,.17,0,24); /* 10 x 3 mm coin vibration motor beside the cell */
+  P.cap=G(g,.35,.55,1.0); B(P.cap,.32,.09,.25,mt.amber,0,0,0); /* flat surface-mount cap beside the radio */
+  P.ant=G(g,1.2,.55,.25); B(P.ant,.2,.1,.7,mt.label,0,0,0); B(P.ant,.2,.11,.1,mt.chip,0,0,0); /* 7 x 2 x 1 mm chip antenna on the board edge */
+  return {g,P}; }
+
+const demo=buildDemoPuck(), inter=buildInterrogator(), prod=buildProdPuck(), plan=buildDemoPuck();
+plan.g.position.set(-17,0,0); plan.P.imu.visible=false; plan.P.lid.position.y=6.6;
+plan.P.bno=G(plan.g,3.5,1.3,1.0); B(plan.P.bno,2.5,.14,2.0,mt.red,0,0,0); B(plan.P.bno,.55,.12,.45,mt.chip,.2,.13,.1); for(let i=0;i<6;i++) B(plan.P.bno,.1,.2,.1,mt.gold,-1.0+i*.4,.17,-.8); /* BNO086 breakout, planned, not fitted */
+demo.g.position.set(0,0,0); prod.g.position.set(24,0,0); inter.g.position.set(60,0,0); scene.add(demo.g, prod.g, inter.g, plan.g);
+/* coin for scale next to the production puck: a US quarter, 24.3 mm */
+const quarter=C(scene,1.215,.175,mt.alu,'y',27.6,.09,1.6,64);
+
+/* ---------- animation keys ---------- */
+const anims=[];
+function K(base,over){ const out=[base]; for(let i=1;i<NS;i++) out.push(over && over[i] ? over[i] : out[i-1]); return out.map(a=>new THREE.Vector3(a[0],a[1],a[2])); }
+function anim(obj,pos,o){ o=o||{}; anims.push({obj,pos,rot:o.rot,delay:o.delay||0,arc:o.arc||{},rotWin:o.rotWin||{}}); }
+const D=demo.P, I=inter.P, Q=prod.P;
+/* demo puck explodes at step 2 (index 1), returns at index 2 */
+anim(D.lid,  K([0,3.35,0],{1:[0,9.5,0],2:[0,6.6,0],3:[0,3.35,0]}), {arc:{0:[0,1.5,0]}});
+anim(D.feather, K([0,1.3,.4],{1:[0,6.0,.4],2:[0,1.3,.4]}), {delay:.08});
+anim(D.bme,  K([3.3,1.3,-2.0],{1:[8.0,4.5,-4.6],2:[3.3,1.3,-2.0]}), {delay:.12});
+anim(D.lipo, K([0,.75,-.2],{1:[-9.5,1.4,-.2],2:[0,.75,-.2]}), {delay:.1, arc:{0:[0,1.2,0]}});
+anim(D.wire, K([0,0,0],{1:[0,4.7,0],2:[0,0,0]}), {delay:.08});
+anim(D.wireDot, K([-.9,2.15,2.0],{1:[-.9,6.85,2.0],2:[-.9,2.15,2.0]}), {delay:.08});
+anim(D.imu,  K([3.5,1.3,1.0],{1:[7.4,3.6,6.0],2:[3.5,1.3,1.0]}), {delay:.2});
+anim(D.cable,K([0,0,0],{1:[0,0,0]})); /* cable stays as a hint of the link; redrawn by stretch below */
+/* interrogator explodes at index 3, returns at 4 */
+anim(I.pi,    K([0,1.3,0],{4:[0,5.5,0],5:[0,1.3,0]}), {arc:{3:[0,1,0]}});
+anim(I.bridge,K([15.0,.3,1.2],{4:[20.0,3.0,1.2],5:[15.0,.3,1.2]}), {delay:.1});
+anim(I.phone, K([0,.4,10.5],{4:[0,2.0,17.5],5:[0,.4,10.5]}), {delay:.14});
+anim(I.bank,  K([0,.8,-9.0],{4:[0,1.5,-16.5],5:[0,.8,-9.0]}), {delay:.14});
+/* production puck explodes at index 4, returns at 5 */
+anim(Q.shell, K([0,.5,0],{5:[0,3.6,0],6:[0,.5,0]}), {arc:{3:[0,.4,0]}});
+anim(Q.mcu,   K([.3,.6,-.35],{5:[.3,2.5,-.35],6:[.3,.6,-.35]}), {delay:.08});
+anim(Q.lora,  K([-.55,.62,.75],{5:[-.55,1.9,.75],6:[-.55,.62,.75]}), {delay:.12});
+anim(Q.tab,   K([2.1,.385,0],{5:[2.4,.05,0],6:[2.1,.385,0]}), {delay:.14});
+anim(Q.baro,  K([-1.05,.6,-.2],{5:[-1.05,1.45,-.2],6:[-1.05,.6,-.2]}), {delay:.16});
+anim(Q.accel, K([1.15,.6,-.1],{5:[1.15,1.4,-.1],6:[1.15,.6,-.1]}), {delay:.18});
+anim(Q.mag,   K([.55,.6,.95],{5:[.55,1.45,.95],6:[.55,.6,.95]}), {delay:.2});
+anim(Q.light, K([-.4,.6,-1.0],{5:[-.4,1.45,-1.0],6:[-.4,.6,-1.0]}), {delay:.2});
+anim(Q.pcb,   K([0,.42,0],{5:[0,1.0,0],6:[0,.42,0]}), {delay:.06});
+anim(Q.cell,  K([0,.21,0],{5:[0,-.3,0],6:[0,.21,0]}), {delay:.1});
+anim(Q.cap,   K([.35,.55,1.0],{5:[.35,1.5,1.0],6:[.35,.55,1.0]}), {delay:.12});
+anim(Q.motor, K([-.85,.3,-.7],{5:[-1.3,-.15,-.9],6:[-.85,.3,-.7]}), {delay:.1});
+anim(Q.ant,   K([1.2,.55,.25],{5:[1.2,1.95,.25],6:[1.2,.55,.25]}), {delay:.22});
+/* side by side at index 5: production puck slides next to the demo case */
+anim(prod.g,  K([24,0,0],{6:[4.2,0,4.6],7:[24,0,0]}));
+anim(quarter, K([27.6,.09,1.6],{6:[6.4,.09,6.2],7:[27.6,.09,1.6]}));
+
+/* ---------- camera keys: target, landscape [az,el,R], portrait [az,el,R], fog [near,far] ---------- */
+const CK=[
+  {t:[0,1.6,0],     L:[.7,.32,8.4],  P:[.7,.36,9.0],  f:[6,40]},
+  {t:[0,4.2,.8],    L:[.55,.36,12.5],P:[.55,.4,13.5], f:[8,50]},
+  {t:[-6.5,1.8,1.5], L:[.3,.66,13.5], P:[.3,.7,16],    f:[9,55]},
+  {t:[61,1.2,1.5],  L:[.6,.42,15.5], P:[.6,.46,18],   f:[10,60]},
+  {t:[62,2.6,1.0],  L:[.75,.46,19.5],P:[.75,.5,23],   f:[12,70]},
+  {t:[24,1.0,0],    L:[-2.35,.4,3.4],P:[-2.35,.44,3.8],f:[2,20]},
+  {t:[-1.2,1.3,2.6],L:[.52,.36,10.6],P:[.52,.4,11.6], f:[6,40]},
+  {t:[33,1.2,2],    L:[.18,.34,34],  P:[.18,.38,40],  f:[14,120]},
+];
+
+/* ---------- copy ---------- */
+const STEPS=[
+  {t:'The demo dipcan is dev boards in a box', s:'A small radio computer, an altitude sensor, a motion sensor and compass, a spring antenna or a quarter-wave wire, a battery, and a wire he cuts to wake it, in a plastic box.'},
+  {t:'Six parts, one box', s:'Every part is on the table and on the bus.'},
+  {t:'Planned one compass, fitted another', s:'The plan was a BNO086. The build fits a Seeed ICM20600 and AK09918 on the same bus, so heading and steps are counted on the board, as in production. The dipcan still never broadcasts: one whisper to the dipcan before it at the drop, then only answers.'},
+  {t:'The finder is a small computer, a radio, and a phone', s:'The rescue team carries a Raspberry Pi, a long-range radio, and a phone running ATAK, all on one battery bank.'},
+  {t:'The computer thinks, the radio talks', s:'The Pi signs one question and sends it over the radio. Each dipcan answers in turn. The Pi checks every answer and puts it on the map.'},
+  {t:'Production is a bottle cap', s:'About the size and weight of a bottle cap, sealed, dropped face down.'},
+  {t:'Same chain, one tenth the volume', s:'Demo and production at true scale. The table says what changes. Amber marks a part not wired in the demo or a production value still to be decided.'},
+  {t:'What stays the same', s:'DIPCAN: Dropped, Indexed, Passive Challenge-Answer Network. The question and answer, the signatures, the turn-taking, and the chain drawn in ATAK.'},
+];
+const LABELS=[
+  [{t:'Radio computer',s:'Runs the dipcan and holds the long-range radio',m:'Adafruit Feather RP2040 RFM95',o:D.feather,off:[0,.3,0],side:'r'},
+   {t:'Plastic box',s:'Plastic, so the radio can hear through it',m:'96 by 66 by 32 mm',o:D.box,off:[-4.8,.6,2.0],side:'l'},
+   {t:'Antenna',s:'Lets the dipcan hear the question and send its answer',m:'Spring antenna or a quarter-wave wire, 915 MHz',o:D.ant,off:[0,1.2,0],side:'l'},
+   {t:'Wire to cut',s:'Snip it and the dipcan wakes. Nothing else can start it',o:D.wireDot,off:[0,.1,0],side:'r'},
+   {t:'Motion sensor and compass',s:'Counts steps and reads heading on the board. Tilt-compensated',m:'Seeed Grove IMU 9DOF, ICM20600 + AK09918',o:D.imu,off:[0,.2,0],side:'r'}],
+  [{t:'Radio computer',s:'The brain and the radio on one small board',m:'Adafruit Feather RP2040 RFM95',o:D.feather,off:[2.6,.3,0],side:'r'},
+   {t:'Barometer',s:'Measures altitude to about a meter',m:'BME688',o:D.bme,off:[0,.2,0],side:'r'},
+   {t:'Battery',s:'Enough to answer at full power. A coin cell could not',m:'1200 mAh LiPo',o:D.lipo,off:[0,.4,0],side:'l'},
+   {t:'Wire to cut',s:'Snip it and the dipcan wakes. Nothing else can start it',o:D.wireDot,off:[0,.1,0],side:'l'},
+   {t:'Motion sensor and compass',s:'Counts steps and reads heading on the board. Tilt-compensated',m:'Seeed Grove IMU 9DOF, ICM20600 + AK09918',o:D.imu,off:[0,.2,0],side:'r'},
+   {t:'Lid',s:'Comes off for the bench',o:D.lid,off:[0,.2,0],side:'l'},
+   ],
+  [{t:'Planned dipcan',s:'Same box and board, with the BNO086 on the bus',o:plan.P.box,off:[-4.8,.6,2.0],side:'l'},
+   {t:'Compass and motion chip',s:'Planned, not fitted. Would have measured heading, steps, and tilt inside the dipcan',m:'SparkFun BNO086',o:plan.P.bno,off:[0,.2,0],side:'l'},
+   {t:'Built dipcan',s:'Heading and steps are counted on the board, as in production',o:D.box,off:[0,.6,-3.3],side:'r'},
+   {t:'Motion sensor and compass',s:'Counts steps and reads heading on the board. Tilt-compensated',m:'Seeed Grove IMU 9DOF, ICM20600 + AK09918',o:D.imu,off:[0,.2,0],side:'r'}],
+  [{t:'Small computer',s:'Signs the question, checks every answer, and draws the map',m:'Raspberry Pi 5',o:I.pi,off:[0,1.4,0],side:'l'},
+   {t:'Long-range radio',s:'Carries the question out and the answers back',m:'Feather 32u4 RFM95, spring antenna or a quarter-wave wire',o:I.bridge,off:[0,.3,0],side:'r'},
+   {t:'The team\'s phone',s:'Runs ATAK on the Pi\'s own Wi-Fi',m:'Samsung Galaxy A17',o:I.phone,off:[0,.4,0],side:'l'},
+   {t:'Battery bank',s:'Runs the Pi and radio for a day in the field',m:'Belkin BoostCharge 10K',o:I.bank,off:[0,.9,0],side:'r'}],
+  [{t:'The question',s:'The Pi signs one short challenge and sends it to the radio',o:I.lead,off:[7.5,.6,1.0],side:'l'},
+   {t:'Long-range radio',s:'Carries the question out and the answers back, a few kilometers line of sight',o:I.bridgeAnt,off:[0,.6,0],side:'r'},
+   {t:'The answers',s:'Each dipcan replies in turn. The Pi checks the signature and reads the fields',o:I.bridge,off:[0,-.6,1.6],side:'r'},
+   {t:'Into ATAK',s:'One marker per dipcan and the route between them, on the team\'s phone',o:I.phone,off:[0,.5,-4.0],side:'l'},
+   {t:'Battery bank',s:'Runs the Pi and radio for a day in the field',o:I.bank,off:[0,.9,2.0],side:'r'}],
+  [{t:'Brain',s:'Runs the dipcan and sleeps for most of its life',m:'ESP32-C6 module',o:Q.mcu,off:[0,.2,0],side:'l'},
+   {t:'Antenna',s:'Flat on the board, so nothing pokes out of the shell',m:'7 by 2 mm chip antenna',o:Q.ant,off:[0,.15,0],side:'r'},
+   {t:'Long-range radio',s:'Whispers its leg once to the dipcan before it, then listens and answers the team\'s question',m:'SX1262, 915 MHz',o:Q.lora,off:[0,.2,0],side:'r'},
+   {t:'Pull tab',s:'Pulling it connects the battery. Nothing can wake it by radio',m:'Insulating strip between the coin cell and its contact',o:Q.tab,off:[1.2,.1,0],side:'r'},
+   {t:'Barometer',s:'Measures altitude to about a meter',m:'BMP280',o:Q.baro,off:[0,.15,0],side:'l'},
+   {t:'Motion sensor',s:'Counts steps while carried, feels a pickup once dropped',o:Q.accel,off:[0,.15,0],side:'r'},
+   {t:'Compass',s:'Optional. Records which way he walked',tbd:1,o:Q.mag,off:[0,.15,0],side:'r'},
+   {t:'Light sensor',s:'Face down means dark. Light means someone picked it up',o:Q.light,off:[0,.1,0],side:'l'},
+   {t:'Coin cell',s:'Months asleep in the vest',o:Q.cell,off:[0,-.2,0],side:'l'},
+   {t:'Buzzer',s:'One buzz says it paired with the next dipcan. He then has sixty seconds to set it down',m:'10 by 3 mm coin vibration motor',o:Q.motor,off:[0,-.2,0],side:'l'},
+   {t:'Booster',s:'Stores enough energy for one full-power answer',tbd:1,m:'Surface-mount capacitor',o:Q.cap,off:[0,.15,0],side:'l'},
+   {t:'Sealed shell',s:'Sealed, 32 by 10 mm',o:Q.shell,off:[0,.6,0],side:'r'},
+   {t:'Red mark',s:'Painted on the last one in his vest. A finder who sees it knows the trail ends here',o:Q.mark,off:[.1,.1,0],side:'r'}],
+  [{t:'Demo',s:'96 by 66 by 32 mm box',o:D.box,off:[-4.8,.8,0],side:'l'},
+   {t:'Production',s:'32 by 10 mm, about 15 g',o:prod.g,off:[0,1.3,0],side:'l'},
+   {t:'US quarter',s:'24 mm, for scale',o:quarter,off:[0,.2,0],side:'l'}],
+  [{t:'One question, one answer',s:'Every message is short and signed, so a stranger cannot fake it or replay it',m:'40 byte packets, HMAC-SHA256',o:I.pi,off:[0,2.2,0],side:'r'},
+   {t:'Answers in turn',s:'Each dipcan waits its turn, so answers never collide',m:'400 ms slots by chain position',o:demo.g,off:[0,5.5,0],side:'l'},
+   {t:'The whisper',s:'At the drop, each dipcan sends its leg back to the one before it, once, at a few meters of power',o:demo.g,off:[-3,2.2,3.4],side:'l'},
+   {t:'No pointer means he is near',s:'A dipcan still being carried has not reported back yet. If the last one found has no pointer, he is close: search every direction but the one you came from',o:prod.g,off:[0,1.2,0],side:'l'},
+   {t:'Same language either way',s:'The demo and production dipcans answer the same question the same way',o:prod.g,off:[0,3.5,0],side:'l'},
+   {t:'The chain in ATAK',s:'Markers with altitude and age, the route between them, and a gap where one went dark',o:I.phone,off:[0,.8,0],side:'r'},
+   {t:'Sixty seconds',s:'From the pairing buzz to live tamper protection',o:I.bridge,off:[0,1.6,0],side:'r'}],
+];
+/* Demo versus production. Replace this array to update the table; nothing else needs editing. tbd:1 renders amber. */
+const DIFF=[
+  {k:'Size and weight', d:{v:'A dev board in a 96 by 66 by 32 mm box, about 120 g',tbd:1}, p:'About the size of a bottle cap, 32 by 10 mm, about 15 g'},
+  {k:'Wake', d:'A wire he cuts', p:'A pull tab that connects the battery'},
+  {k:'Heading and steps', d:'Grove 9-axis IMU on the board (ICM20600 + AK09918)', p:'A compass and motion chip inside the dipcan (BNO086)'},
+  {k:'Pairing and key', d:'The shared secret is loaded when the firmware is flashed', p:{v:'Two dipcans agree a secret when he wakes them, over Bluetooth built into the brain. The dropped one sends its leg back once',tbd:1}},
+  {k:'Radio', d:'Hobby long-range radio, set for the bench', p:{v:'Same radio family, set for range: about a mile ground to ground',tbd:1}},
+  {k:'What it transmits', d:'A drop report to the dipcan before it, then answers to signed questions', p:'A drop report to the dipcan before it, then answers to signed questions'},
+  {k:'Power and listening', d:{v:'Rechargeable battery, radio always on, lasts hours',tbd:1}, p:{v:'Coin cell plus a booster. Radio wakes for a blink every ten seconds: months asleep, one to two weeks listening',tbd:1}},
+  {k:'Tamper and kill', d:'Lift wipes it, once placed', p:'Motion, light, or touch wipes it, sixty seconds after the pairing buzz. So does a remote kill or a 72 hour timer'},
+  {k:'Cost', d:{v:'About 60 dollars in dev boards',tbd:1}, p:'About 15 dollars in volume'},
+];
+(function(){ const cell=v=>typeof v==='string'?'<td>'+v+'</td>':'<td class="'+(v.tbd?'tbd':'')+'">'+v.v+'</td>';
+  $('diff').innerHTML='<table><tr><th></th><th>Demo build</th><th>Production</th></tr>'+DIFF.map(r=>'<tr><td>'+r.k+'</td>'+cell(r.d)+cell(r.p)+'</tr>').join('')+'</table>'; })();
+
+const labelsEl=$('labels'), linesEl=$('lines'), live=[];
+LABELS.forEach((set,step)=>set.forEach(L=>{
+  const d=document.createElement('div'); d.className='co '+(L.side==='r'?'r':'l');
+  d.innerHTML='<div class="t">'+L.t+'</div>'+(L.s?'<div class="s'+(L.tbd?' tbd':'')+'">'+L.s+'</div>':'')+(L.m?'<div class="s m">'+L.m+'</div>':'');
+  labelsEl.appendChild(d);
+  const pl=document.createElementNS('http://www.w3.org/2000/svg','polyline'), ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  ci.setAttribute('r',2.5); linesEl.appendChild(pl); linesEl.appendChild(ci);
+  live.push({L,step,d,pl,ci,off:new THREE.Vector3(L.off[0],L.off[1],L.off[2])});
+}));
+
+/* ---------- state ---------- */
+const S={p:0}, U={az:0, el:0, zoom:1};
+let Wp=1, Hp=1, dockH=150, step=-1;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2, clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t;
+const MAXD=.32, tgt=new THREE.Vector3(), v=new THREE.Vector3();
+const CHIPS=['Demo build','Demo build','Planned versus built','Demo build','Demo build','Production concept','Demo versus production','Shared contract'];
+
+function pose(time){
+  const p=clamp(S.p,0,NS-1), i=Math.min(NS-2,Math.floor(p)), f=p-i;
+  anims.forEach(a=>{
+    const ff=ease(clamp((f-a.delay)/(1-MAXD),0,1));
+    a.obj.position.lerpVectors(a.pos[i],a.pos[i+1],ff);
+    const arc=a.arc[i]; if(arc){ const k=Math.sin(ff*PI); a.obj.position.x+=arc[0]*k; a.obj.position.y+=arc[1]*k; a.obj.position.z+=arc[2]*k; }
+  });
+  /* production shell goes translucent while exploded so the stack reads */
+  quarter.visible=Math.abs(p-6)<1.2; prod.g.visible=p>4.3; const ex=clamp(1-Math.abs(p-5)*1.6,0,1); plan.g.visible=Math.abs(p-2)<.75; Q.shell.children[0].material.opacity=1-.55*ex; Q.shell.children[0].material.depthWrite=ex<.5;
+  const e=ease(f), A=CK[i], Bk=CK[i+1], port=Wp/Hp<1, a=port?A.P:A.L, b=port?Bk.P:Bk.L;
+  tgt.set(lerp(A.t[0],Bk.t[0],e),lerp(A.t[1],Bk.t[1],e),lerp(A.t[2],Bk.t[2],e));
+  const drift=reduce?0:Math.sin(time*.00035)*.07;
+  const az=lerp(a[0],b[0],e)+U.az+drift, el=clamp(lerp(a[1],b[1],e)+U.el,.03,1.35), R=lerp(a[2],b[2],e);
+  cam.fov=port?40:30;
+  const th=Math.tan(cam.fov*PI/360), usable=Math.max(.35,(Hp-dockH-70)/Hp);
+  const dist=R/Math.min(th*usable, th*Wp/Hp)*U.zoom;
+  cam.position.set(tgt.x+dist*Math.sin(az)*Math.cos(el), tgt.y+dist*Math.sin(el), tgt.z+dist*Math.cos(az)*Math.cos(el));
+  cam.lookAt(tgt); scene.fog.near=dist+lerp(A.f[0],Bk.f[0],e); scene.fog.far=dist+lerp(A.f[1],Bk.f[1],e);
+  const tblK=clamp(1-Math.abs(p-6)*2.2,0,1), xOff=Wp>=900?Math.round($('diff').offsetWidth*.5*tblK):0;
+  cam.setViewOffset(Wp,Hp,xOff,Math.round((dockH-70)/2),Wp,Hp); cam.updateMatrixWorld();
+  $('diff').style.opacity=clamp(1-Math.abs(p-6)*2.2,0,1);
+}
+
+function layout(){
+  const p=S.p, top=84, bot=Hp-dockH-6, sides={l:[],r:[]}; const tableW=(Math.abs(p-6)<.5 && Wp>=900)?$('diff').offsetWidth+40:0;
+  live.forEach(l=>{
+    const w=clamp(1-Math.abs(p-l.step)*3.2,0,1); l.w=w;
+    if(w<=0){ l.d.style.display=l.pl.style.display=l.ci.style.display='none'; return; }
+    l.L.o.updateWorldMatrix(true,false); v.copy(l.off); l.L.o.localToWorld(v); v.project(cam);
+    l.ax=(v.x+1)/2*Wp; l.ay=(1-v.y)/2*Hp;
+    if(v.z>1 || l.ay<top-30 || l.ay>bot+30){ l.d.style.display=l.pl.style.display=l.ci.style.display='none'; return; }
+    l.d.style.display=l.pl.style.display=l.ci.style.display=''; l.d.style.opacity=l.pl.style.opacity=l.ci.style.opacity=w;
+    l.h=l.d.offsetHeight; l.bw=l.d.offsetWidth; l.y=l.ay-9; sides[l.L.side].push(l);
+  });
+  ['l','r'].forEach(sd=>{
+    const a=sides[sd].sort((x,y)=>x.y-y.y); let prev=top;
+    a.forEach(l=>{ l.y=Math.max(l.y,prev); prev=l.y+l.h+14; });
+    let over=prev-14-bot; if(over>0) for(let k=a.length-1;k>=0;k--){ a[k].y-=over; if(k>0){ over=a[k-1].y+a[k-1].h+14-a[k].y; if(over<=0) break; } }
+    a.forEach(l=>{
+      const pad=Wp>=900?32:14, bx=sd==='l'?pad:Wp-pad-l.bw-(sd==='r'?tableW:0);
+      l.d.style.left=bx+'px'; l.d.style.top=l.y+'px';
+      const ex=sd==='l'?bx+l.bw+8:bx-8, ey=l.y+9, kx=sd==='l'?Math.min(ex+18,l.ax):Math.max(ex-18,l.ax);
+      l.pl.setAttribute('points',ex+','+ey+' '+kx+','+ey+' '+l.ax+','+l.ay); l.ci.setAttribute('cx',l.ax); l.ci.setAttribute('cy',l.ay);
+    });
+  });
+}
+
+/* ---------- controls ---------- */
+const track=$('track'), fill=$('fill'), knob=$('knob'), playBtn=$('play'), ticks=[];
+for(let i=0;i<NS;i++){ const b=document.createElement('button'); b.className='tick'; b.type='button'; b.style.left=(i/(NS-1)*100)+'%'; b.setAttribute('aria-label','Step '+(i+1)+', '+STEPS[i].t); b.addEventListener('click',e=>{ e.stopPropagation(); goTo(i); }); track.insertBefore(b,knob); ticks.push(b); }
+function sync(){
+  const pc=(S.p/(NS-1)*100)+'%'; fill.style.width=pc; knob.style.left=pc; track.setAttribute('aria-valuenow',S.p.toFixed(2));
+  const st=clamp(Math.round(S.p),0,NS-1); if(st===step) return; step=st;
+  $('num').textContent=String(st+1).padStart(2,'0'); $('ttl').textContent=STEPS[st].t; $('sub').textContent=STEPS[st].s; $('chip').textContent=CHIPS[st];
+  ticks.forEach((b,i)=>b.setAttribute('aria-current',String(i===st)));
+}
+let tw=null, playing=false;
+function stop(){ if(tw){ tw.kill(); tw=null; } playing=false; playBtn.textContent='PLAY'; }
+function recenter(){ if(window.gsap && !reduce) gsap.to(U,{az:0,el:0,zoom:1,duration:1,ease:'power2.out'}); else { U.az=U.el=0; U.zoom=1; } }
+function tweenTo(target,dur,done){ if(tw){ tw.kill(); tw=null; } if(!window.gsap || reduce || dur<=0){ S.p=target; if(done) done(); return; } tw=gsap.to(S,{p:target,duration:dur,ease:'none',onComplete:()=>{ tw=null; if(done) done(); }}); }
+function goTo(i){ stop(); i=clamp(i,0,NS-1); recenter(); tweenTo(i, Math.min(3, 1.9*Math.abs(i-S.p))); }
+playBtn.addEventListener('click',()=>{ if(playing){ stop(); return; } if(S.p>NS-1.02) S.p=0; recenter(); playing=true; playBtn.textContent='PAUSE'; tweenTo(NS-1,(NS-1-S.p)*3.2,stop); if(!tw) stop(); });
+$('prev').addEventListener('click',()=>goTo(Math.ceil(S.p-.02)-1)); $('next').addEventListener('click',()=>goTo(Math.floor(S.p+.02)+1));
+let scrubbing=false; function scrubAt(e){ const r=track.getBoundingClientRect(); S.p=clamp((e.clientX-r.left)/r.width,0,1)*(NS-1); }
+track.addEventListener('pointerdown',e=>{ stop(); scrubbing=true; try{track.setPointerCapture(e.pointerId);}catch(_){} scrubAt(e); }); track.addEventListener('pointermove',e=>{ if(scrubbing) scrubAt(e); }); ['pointerup','pointercancel'].forEach(t=>track.addEventListener(t,()=>{ scrubbing=false; }));
+document.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'){ $('next').click(); e.preventDefault(); } else if(e.key==='ArrowLeft'){ $('prev').click(); e.preventDefault(); } else if(e.key===' ' && e.target.tagName!=='BUTTON'){ playBtn.click(); e.preventDefault(); } });
+const gl=$('gl'), pts=new Map(); let pinch=0;
+gl.addEventListener('pointerdown',e=>{ pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); try{gl.setPointerCapture(e.pointerId);}catch(_){} pinch=0; });
+gl.addEventListener('pointermove',e=>{ const q=pts.get(e.pointerId); if(!q) return; if(pts.size===1){ U.az-=(e.clientX-q.x)*.007; U.el+=(e.clientY-q.y)*.005; } q.x=e.clientX; q.y=e.clientY; if(pts.size===2){ const a=[...pts.values()], d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y); if(pinch) U.zoom=clamp(U.zoom*pinch/d,.4,2.2); pinch=d; } });
+['pointerup','pointercancel'].forEach(t=>gl.addEventListener(t,e=>{ pts.delete(e.pointerId); pinch=0; }));
+gl.addEventListener('wheel',e=>{ U.zoom=clamp(U.zoom*(1+e.deltaY*.001),.4,2.2); e.preventDefault(); },{passive:false});
+
+function resize(){ Wp=Math.max(1,innerWidth); Hp=Math.max(1,innerHeight); dockH=$('dock').offsetHeight; renderer.setSize(Wp,Hp,false); cam.aspect=Wp/Hp; cam.updateProjectionMatrix(); }
+addEventListener('resize',resize); resize();
+/* render hooks for headless frame capture: ?step=N lands on a step; __step(i) jumps and resolves after two drawn frames */
+const q=new URLSearchParams(location.search); if(q.has('step')) S.p=clamp(Number(q.get('step')),0,NS-1);
+let frames=0; const waiters=[];
+window.__step=i=>{ stop(); S.p=clamp(i,0,NS-1); U.az=U.el=0; U.zoom=1; return new Promise(r=>waiters.push({at:frames+2,r})); };
+function tick(t){ if(!document.hidden){ sync(); pose(q.has('step')?0:t); renderer.render(scene,cam); layout(); frames++; for(let k=waiters.length-1;k>=0;k--) if(frames>=waiters[k].at){ waiters[k].r(); waiters.splice(k,1); } } requestAnimationFrame(tick); }
+requestAnimationFrame(tick); (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(()=>{ window.__granuleReady=true; });
+})();
+</script>
+</body>
+</html>

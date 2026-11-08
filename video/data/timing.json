@@ -1,0 +1,633 @@
+{
+ "provider": "human",
+ "voice": "sean",
+ "total": 442.06,
+ "scenes": {
+  "S1": {
+   "start": 1,
+   "end": 16.216
+  },
+  "S2": {
+   "start": 16.816,
+   "end": 44.302
+  },
+  "S3": {
+   "start": 44.902,
+   "end": 81.21300000000001
+  },
+  "S4": {
+   "start": 81.813,
+   "end": 125.647
+  },
+  "S5": {
+   "start": 128.847,
+   "end": 174.095
+  },
+  "S6": {
+   "start": 174.695,
+   "end": 253.88400000000001
+  },
+  "S7": {
+   "start": 257.084,
+   "end": 391.053
+  },
+  "S8": {
+   "start": 396.753,
+   "end": 440.56399999999996
+  }
+ },
+ "lines": [
+  {
+   "n": 1,
+   "scene": "S1",
+   "text": "A radio tells us where an isolated person is when they key it.",
+   "file": "audio/01-hebe3292e3.trim2.mp3",
+   "start": 1,
+   "end": 4.262,
+   "dur": 3.262
+  },
+  {
+   "n": 2,
+   "scene": "S1",
+   "text": "DIPCAN tells us where they went while they stayed silent.",
+   "file": "audio/02-h7c045b152.trim2.mp3",
+   "start": 4.662,
+   "end": 7.606,
+   "dur": 2.943
+  },
+  {
+   "n": 3,
+   "scene": "S1",
+   "text": "DIPCAN. Dropped, Indexed, Passive Challenge-Answer Network. Team 21.",
+   "file": "audio/03-h139361922.trim2.mp3",
+   "start": 9.606,
+   "end": 15.816,
+   "dur": 6.211
+  },
+  {
+   "n": 4,
+   "scene": "S2",
+   "text": "April 3, 2026. An F-15E is hit over the Zagros Mountains in southwestern Iran.[^1]",
+   "file": "audio/04-he6c6326bf.trim2.mp3",
+   "start": 16.816,
+   "end": 23.329,
+   "dur": 6.512
+  },
+  {
+   "n": 5,
+   "scene": "S2",
+   "text": "Both crew eject.",
+   "file": "audio/05-h9827364a5.trim2.mp3",
+   "start": 23.729,
+   "end": 25.154,
+   "dur": 1.426
+  },
+  {
+   "n": 6,
+   "scene": "S2",
+   "text": "The pilot is picked up within hours.[^1]",
+   "file": "audio/06-h152e58e02.trim2.mp3",
+   "start": 25.554,
+   "end": 27.689,
+   "dur": 2.135
+  },
+  {
+   "n": 7,
+   "scene": "S2",
+   "text": "The weapons systems officer, call sign Dude 44 Bravo, is alone in the mountains for about two days.[^2]",
+   "file": "audio/07-hfb265f512.trim2.mp3",
+   "start": 28.089,
+   "end": 34.555,
+   "dur": 6.466
+  },
+  {
+   "n": 8,
+   "scene": "S2",
+   "text": "He is recovered on April 5. It takes 155 aircraft.[^3]",
+   "file": "audio/08-hcc6d8847e.trim2.mp3",
+   "start": 34.955,
+   "end": 39.42,
+   "dur": 4.466
+  },
+  {
+   "n": 9,
+   "scene": "S2",
+   "text": "For two days he had to choose between staying hidden and being findable.",
+   "file": "audio/09-hc6b3073d5.trim2.mp3",
+   "start": 39.82,
+   "end": 43.902,
+   "dur": 4.081
+  },
+  {
+   "n": 10,
+   "scene": "S3",
+   "text": "This is the terrain. Kohgiluyeh and Boyer-Ahmad, near Dehdasht.[^2]",
+   "file": "audio/10-h1ccc87bc2.trim2.mp3",
+   "start": 44.902,
+   "end": 50.925,
+   "dur": 6.023
+  },
+  {
+   "n": 11,
+   "scene": "S3",
+   "text": "Limestone ridges from 2,000 to over 3,500 meters, valleys with roads and camps.",
+   "file": "audio/11-h3a4e1ed51.trim2.mp3",
+   "start": 51.325,
+   "end": 57.627,
+   "dur": 6.302
+  },
+  {
+   "n": 12,
+   "scene": "S3",
+   "text": "His survival radio sends an encrypted burst over satellite.",
+   "file": "audio/12-h05653e3a7.trim2.mp3",
+   "start": 58.027,
+   "end": 61.269,
+   "dur": 3.242
+  },
+  {
+   "n": 13,
+   "scene": "S3",
+   "text": "Every burst can be direction-found. It needs a view of the sky. It says where he is only at the moment he keys it.",
+   "file": "audio/13-hf8f532cbb.trim2.mp3",
+   "start": 61.669,
+   "end": 68.918,
+   "dur": 7.25
+  },
+  {
+   "n": 14,
+   "scene": "S3",
+   "text": "So for most of two days, he did not key it. The team had nothing.",
+   "file": "audio/14-hd3643caf5.trim2.mp3",
+   "start": 69.318,
+   "end": 74.012,
+   "dur": 4.693
+  },
+  {
+   "n": 15,
+   "scene": "S3",
+   "text": "DIPCAN lets him go completely dark, never leave cover, and still leave a trail only friendlies can read.",
+   "file": "audio/15-he46f615c8.trim2.mp3",
+   "start": 74.412,
+   "end": 80.813,
+   "dur": 6.401
+  },
+  {
+   "n": 16,
+   "scene": "S4",
+   "text": "A dipcan. In production, about the size of a bottle cap, about 15 grams, about 15 dollars.",
+   "file": "audio/16-h125b0aea1.trim2.mp3",
+   "start": 81.813,
+   "end": 89.576,
+   "dur": 7.763
+  },
+  {
+   "n": 17,
+   "scene": "S4",
+   "text": "Inside: a radio, a barometer, a motion sensor, and a battery behind a pull tab.",
+   "file": "audio/17-hf54ad8c72.trim2.mp3",
+   "start": 89.976,
+   "end": 95.54,
+   "dur": 5.564
+  },
+  {
+   "n": 18,
+   "scene": "S4",
+   "text": "The radio is LoRa at 915 megahertz. It speaks twice in its life: a whisper to the dipcan before it when it is dropped, and its answer to the team.",
+   "file": "audio/18-hcb0c2665b.trim2.mp3",
+   "start": 95.94,
+   "end": 105.693,
+   "dur": 9.753
+  },
+  {
+   "n": 19,
+   "scene": "S4",
+   "text": "The barometer gives elevation to about a meter.",
+   "file": "audio/19-hfc3494c3e.trim2.mp3",
+   "start": 106.093,
+   "end": 108.593,
+   "dur": 2.5
+  },
+  {
+   "n": 20,
+   "scene": "S4",
+   "text": "The motion sensor counts steps while carried and feels a pickup after the dipcan is dropped.",
+   "file": "audio/20-h42805d7dd.trim2.mp3",
+   "start": 108.993,
+   "end": 113.981,
+   "dur": 4.988
+  },
+  {
+   "n": 21,
+   "scene": "S4",
+   "text": "It lives in the survival vest with the tab in. Dormant, it draws nothing and emits nothing. Only he can start it, and only the team's signed question can make it speak.",
+   "file": "audio/21-h92ea410e7.trim2.mp3",
+   "start": 114.381,
+   "end": 125.247,
+   "dur": 10.865,
+   "insertAfter": "A"
+  },
+  {
+   "n": 22,
+   "scene": "S5",
+   "text": "He pulls the tab. One blink.",
+   "file": "audio/22-h17d9a1edc.trim2.mp3",
+   "start": 128.847,
+   "end": 130.973,
+   "dur": 2.126
+  },
+  {
+   "n": 23,
+   "scene": "S5",
+   "text": "Held next to the next dipcan he will carry, it pairs with it and buzzes once. He has sixty seconds to set it down.",
+   "file": "audio/23-h603bf8a1d.trim2.mp3",
+   "start": 131.373,
+   "end": 137.989,
+   "dur": 6.615
+  },
+  {
+   "n": 25,
+   "scene": "S5",
+   "text": "Set down, the sixty seconds run out and tamper protection is live.",
+   "file": "audio/25-he744cdf7b.trim2.mp3",
+   "start": 138.389,
+   "end": 142.328,
+   "dur": 3.939
+  },
+  {
+   "n": 24,
+   "scene": "S5",
+   "text": "The one he carries logs steps, heading, and barometric altitude. The radio stays off.",
+   "file": "audio/24-h8011e3666.trim2.mp3",
+   "start": 142.728,
+   "end": 148.76,
+   "dur": 6.033
+  },
+  {
+   "n": 59,
+   "scene": "S5",
+   "text": "In the demo build, he cuts a small wire instead of pulling a tab. The motion sensor and compass ride on the board, the same as production.",
+   "file": "audio/59-hdc3ea0e28.trim2.mp3",
+   "start": 149.16,
+   "end": 157.079,
+   "dur": 7.919
+  },
+  {
+   "n": 26,
+   "scene": "S5",
+   "text": "When that one is set down, it sends what it learned on the walk back to the dipcan before it. One short message, no louder than it has to be. Now both of them know the leg.",
+   "file": "audio/26-hefb7521ba.trim2.mp3",
+   "start": 157.479,
+   "end": 167.153,
+   "dur": 9.674
+  },
+  {
+   "n": 27,
+   "scene": "S5",
+   "text": "Then it listens. It answers one thing only: a challenge signed with the chain key the team holds.",
+   "file": "audio/27-h4222ba840.trim2.mp3",
+   "start": 167.553,
+   "end": 173.695,
+   "dur": 6.141
+  },
+  {
+   "n": 28,
+   "scene": "S6",
+   "text": "Here is how it plays out on this ground. The walk is modeled. The terrain is real.",
+   "file": "audio/28-h3d09dd775.trim2.mp3",
+   "start": 174.695,
+   "end": 179.384,
+   "dur": 4.69
+  },
+  {
+   "n": 29,
+   "scene": "S6",
+   "text": "04:52. He lands on a slope of loose rock at 2,480 meters, 300 meters above a road. He drops dipcan 1 under a rock.",
+   "file": "audio/29-h4a708013a.trim2.mp3",
+   "start": 179.784,
+   "end": 189.618,
+   "dur": 9.834
+  },
+  {
+   "n": 30,
+   "scene": "S6",
+   "text": "",
+   "file": null,
+   "start": 190.018,
+   "end": 190.018,
+   "dur": 0,
+   "cut": true
+  },
+  {
+   "n": 31,
+   "scene": "S6",
+   "text": "He climbs northeast in the dark. 600 meters across, 130 meters up.",
+   "file": "audio/31-h944d9547e.trim2.mp3",
+   "start": 190.018,
+   "end": 194.541,
+   "dur": 4.523
+  },
+  {
+   "n": 32,
+   "scene": "S6",
+   "text": "07:10. He drops dipcan 2 in a boulder field and goes to ground for the day.",
+   "file": "audio/32-hdb153cb1c.trim2.mp3",
+   "start": 194.941,
+   "end": 199.864,
+   "dur": 4.923
+  },
+  {
+   "n": 33,
+   "scene": "S6",
+   "text": "Dipcan 2 whispers its leg back to dipcan 1 and goes quiet. The finder can read that leg from either end.",
+   "file": "audio/33-hddc64b800.trim2.mp3",
+   "start": 200.264,
+   "end": 206.782,
+   "dur": 6.518
+  },
+  {
+   "n": 34,
+   "scene": "S6",
+   "text": "15:10. An adversary search party sweeps the boulder field. Someone picks up dipcan 2.",
+   "file": "audio/34-hda3c94de5.trim2.mp3",
+   "start": 207.182,
+   "end": 212.599,
+   "dur": 5.417
+  },
+  {
+   "n": 35,
+   "scene": "S6",
+   "text": "It bricks. Keys gone, flash erased, radio dead. The enemy is holding a dead dipcan.",
+   "file": "audio/35-h4b70f3048.trim2.mp3",
+   "start": 212.999,
+   "end": 219.189,
+   "dur": 6.19
+  },
+  {
+   "n": 36,
+   "scene": "S6",
+   "text": "20:30. He moves after dark, 900 meters up a drainage to a shelf below the crest at 2,890 meters. Dipcan 3.",
+   "file": "audio/36-h5d5bffcb3.trim2.mp3",
+   "start": 219.589,
+   "end": 228.475,
+   "dur": 8.886
+  },
+  {
+   "n": 37,
+   "scene": "S6",
+   "text": "22:15. A crevice just over the crest at 2,940 meters, out of the wind and out of the valley's line of sight. Dipcan 4 at the mouth.",
+   "file": "audio/37-h6d81bd516.trim2.mp3",
+   "start": 228.875,
+   "end": 237.642,
+   "dur": 8.767
+  },
+  {
+   "n": 65,
+   "scene": "S6",
+   "text": "Dipcan 4 carries a red mark. It was the last one in his vest. A finder who sees the mark knows the trail ends here.",
+   "file": "audio/65-h3b22966ba.trim2.mp3",
+   "start": 238.042,
+   "end": 244.561,
+   "dur": 6.52
+  },
+  {
+   "n": 38,
+   "scene": "S6",
+   "text": "Then he goes dark. Four dipcans across 1.7 kilometers and 460 meters of climb.",
+   "file": "audio/38-h91fc14cfd.trim2.mp3",
+   "start": 244.961,
+   "end": 251.23,
+   "dur": 6.269
+  },
+  {
+   "n": 39,
+   "scene": "S6",
+   "text": "He never pressed a transmit key.",
+   "file": "audio/39-hb32202aff.trim2.mp3",
+   "start": 251.63,
+   "end": 253.484,
+   "dur": 1.854,
+   "insertAfter": "B"
+  },
+  {
+   "n": 40,
+   "scene": "S7",
+   "text": "The rescue element, a hostage rescue team, search and rescue team, helicopter, or in this case a drone, carries an interrogator: a small computer, a LoRa radio, and a phone running ATAK.",
+   "file": "audio/40-hd038634ca.trim2.mp3",
+   "start": 257.084,
+   "end": 269.788,
+   "dur": 12.704
+  },
+  {
+   "n": 41,
+   "scene": "S7",
+   "text": "",
+   "file": null,
+   "start": 270.188,
+   "end": 270.188,
+   "dur": 0,
+   "cut": true
+  },
+  {
+   "n": 42,
+   "scene": "S7",
+   "text": "02:40, day two. From 15 kilometers out it sends one signed challenge.",
+   "file": "audio/42-h9b0abdfef.trim2.mp3",
+   "start": 270.188,
+   "end": 275.472,
+   "dur": 5.283
+  },
+  {
+   "n": 43,
+   "scene": "S7",
+   "text": "It is a DIPCAN: a dropped, indexed, passive challenge-answer network. The team does not know where any dipcan is. Dipcan 1 answers in its slot, dipcan 3 in its, dipcan 4 in its. Dipcan 2 is silent.",
+   "file": "audio/43-hcc7229182.trim2.mp3",
+   "start": 278.372,
+   "end": 293.79,
+   "dur": 15.418
+  },
+  {
+   "n": 44,
+   "scene": "S7",
+   "text": "Each answer carries its number, its elevation, how long since it was dropped, the leg it walked, and the pointer to the next dipcan.",
+   "file": "audio/44-hfaace52a0.trim2.mp3",
+   "start": 294.19,
+   "end": 301.446,
+   "dur": 7.256
+  },
+  {
+   "n": 60,
+   "scene": "S7",
+   "text": "Each dipcan points at the next one, for three reasons.",
+   "file": "audio/60-h78652bc72.trim2.mp3",
+   "start": 301.846,
+   "end": 305.405,
+   "dur": 3.559
+  },
+  {
+   "n": 61,
+   "scene": "S7",
+   "text": "Range. LoRa reaches a few kilometers here. On foot, the finder cannot hear the last dipcan from the start, but each one puts him in range of the next.",
+   "file": "audio/61-h4cdb05142.trim2.mp3",
+   "start": 305.805,
+   "end": 314.73,
+   "dur": 8.925
+  },
+  {
+   "n": 62,
+   "scene": "S7",
+   "text": "Error. Dead reckoning drifts about ten percent of the walk. Standing on each dipcan resets it: 20 kilometers in three legs ends in a 600 meter circle instead of 2 kilometers.",
+   "file": "audio/62-hec44212bd.trim2.mp3",
+   "start": 315.13,
+   "end": 327.064,
+   "dur": 11.933
+  },
+  {
+   "n": 63,
+   "scene": "S7",
+   "text": "Survival. If he is taken or the last dipcan dies, the dropped ones still say where he was, when, and which way. A circle around the last fix becomes a cone along his track.",
+   "file": "audio/63-ha0afaf54b.trim2.mp3",
+   "start": 327.464,
+   "end": 338.387,
+   "dur": 10.923
+  },
+  {
+   "n": 45,
+   "scene": "S7",
+   "text": "",
+   "file": null,
+   "start": 338.787,
+   "end": 338.787,
+   "dur": 0,
+   "cut": true
+  },
+  {
+   "n": 46,
+   "scene": "S7",
+   "text": "Every answer lands in ATAK, the tool the team already carries. The chain draws itself.",
+   "file": "audio/46-hf6e6b7ac7.trim2.mp3",
+   "start": 338.787,
+   "end": 344.434,
+   "dur": 5.647
+  },
+  {
+   "n": 47,
+   "scene": "S7",
+   "text": "Three live markers climbing northeast. A gap with a time. The newest dipcan four hours old at 2,940 meters.",
+   "file": "audio/47-h2bce103c4.trim2.mp3",
+   "start": 344.834,
+   "end": 353.521,
+   "dur": 8.687
+  },
+  {
+   "n": 64,
+   "scene": "S7",
+   "text": "Dipcan 4 answers with no pointer to a next one. A dipcan he is still carrying has not reported yet. So he is close: search every direction except the one you came from.",
+   "file": "audio/64-heb8339b74.trim2.mp3",
+   "start": 353.921,
+   "end": 364.083,
+   "dur": 10.163
+  },
+  {
+   "n": 48,
+   "scene": "S7",
+   "text": "The search area collapses from a 20 kilometer valley to one north face.",
+   "file": "audio/48-he2b1098c1.trim2.mp3",
+   "start": 364.483,
+   "end": 368.711,
+   "dur": 4.227
+  },
+  {
+   "n": 49,
+   "scene": "S7",
+   "text": "",
+   "file": null,
+   "start": 369.111,
+   "end": 369.111,
+   "dur": 0,
+   "cut": true
+  },
+  {
+   "n": 50,
+   "scene": "S7",
+   "text": "Reporting says a classified sensor called Ghost Murmur found him once he left cover.[^4] DIPCAN tells it where to look while he stays hidden.",
+   "file": "audio/50-ha386cb410.trim2.mp3",
+   "start": 370.911,
+   "end": 381.227,
+   "dur": 10.317
+  },
+  {
+   "n": 51,
+   "scene": "S7",
+   "text": "03:30. Ground force on the saddle. Recovery. The team sends one signed kill command, and every dipcan wipes itself for good.",
+   "file": "audio/51-h0fcb8a049.trim2.mp3",
+   "start": 381.627,
+   "end": 390.653,
+   "dur": 9.026,
+   "insertAfter": "C"
+  },
+  {
+   "n": 52,
+   "scene": "S8",
+   "text": "What the chain gave the team: which side of the ridge, how high, that he was moving at 22:15, and where the hunters were.",
+   "file": "audio/52-hf84d5291a.trim2.mp3",
+   "start": 396.753,
+   "end": 403.873,
+   "dur": 7.119
+  },
+  {
+   "n": 56,
+   "scene": "S8",
+   "text": "Everything fielded finds the man by making him transmit, or by sensing him from far away.",
+   "file": "audio/56-hde49014cc.trim2.mp3",
+   "start": 404.273,
+   "end": 409.31,
+   "dur": 5.038
+  },
+  {
+   "n": 57,
+   "scene": "S8",
+   "text": "DIPCAN holds no GPS, needs no sky, and costs about 15 dollars. He drops it and forgets it.",
+   "file": "audio/57-h0c9571ae1.trim2.mp3",
+   "start": 409.71,
+   "end": 416.688,
+   "dur": 6.977
+  },
+  {
+   "n": 58,
+   "scene": "S8",
+   "text": "If he is captured, the chain still answers with the last place he was free.",
+   "file": "audio/58-h3c7a28fa2.trim2.mp3",
+   "start": 417.088,
+   "end": 421.142,
+   "dur": 4.054
+  },
+  {
+   "n": 53,
+   "scene": "S8",
+   "text": "A beacon shouts at the sky. A dipcan whispers once to the one before it, then speaks only when a friendly with the key asks.",
+   "file": "audio/53-ha15469157.trim2.mp3",
+   "start": 421.542,
+   "end": 429.785,
+   "dur": 8.243
+  },
+  {
+   "n": 54,
+   "scene": "S8",
+   "text": "A radio tells us where an isolated person is when they key it. DIPCAN tells us where they went while they stayed silent.",
+   "file": "audio/54-hd310b0212.trim2.mp3",
+   "start": 430.185,
+   "end": 437.422,
+   "dur": 7.237
+  },
+  {
+   "n": 55,
+   "scene": "S8",
+   "text": "DIPCAN. Team 21.",
+   "file": "audio/55-h5e78e32c9.trim2.mp3",
+   "start": 437.822,
+   "end": 440.164,
+   "dur": 2.341
+  }
+ ]
+}

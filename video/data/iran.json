@@ -1,0 +1,13 @@
+{
+  "name": "iran",
+  "z": 6,
+  "width": 1280,
+  "height": 1024,
+  "west": 39.375,
+  "east": 67.5,
+  "north": 40.97989806962013,
+  "south": 21.943045533438177,
+  "minM": -4399,
+  "maxM": 4970,
+  "encoding": "terrarium"
+}

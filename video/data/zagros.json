@@ -1,0 +1,13 @@
+{
+  "name": "zagros",
+  "z": 11,
+  "width": 1536,
+  "height": 1536,
+  "west": 50.09765625,
+  "east": 51.15234375,
+  "north": 31.353636941500987,
+  "south": 30.448673679287566,
+  "minM": 228,
+  "maxM": 3648,
+  "encoding": "terrarium"
+}
