@@ -47,7 +47,7 @@ Two rules the finder reads on the phone. A dipcan that answers with no pointer t
 
 ## What the team carries
 
-The rescue element, a hostage rescue team, a search and rescue team, a helicopter, or a drone, carries the interrogator: a small computer, a long-range radio, and a phone running ATAK. The Pi signs one short question and sends it over the radio. Each dipcan replies in the time slot its number gives it. The Pi checks every signature and puts one marker per dipcan on the map, with the route between them. After recovery, one signed kill command and every dipcan wipes itself for good.
+The rescue element, a hostage rescue team, a search and rescue team, a helicopter, or a drone, carries the interrogator: a LoRa radio and an Android phone. The phone runs ATAK and a small companion app (`android-interrogator/`) that drives the radio over USB. The app signs one short question and sends it; each dipcan replies in the time slot its number gives it; the app checks every signature, orders the answers into a chain, and hands one marker per dipcan to ATAK with the route between them. After recovery, one signed kill command and every dipcan wipes itself for good. No computer sits between the radio and the phone.
 
 ![The interrogator: a Raspberry Pi, a LoRa radio, and a phone running ATAK](docs/media/kit.png)
 
@@ -55,21 +55,23 @@ The rescue element, a hostage rescue team, a search and rescue team, a helicopte
 
 | | Demo build (this repo) | Production |
 |---|---|---|
-| Radio computer | Adafruit Feather RP2040 RFM95 (LoRa, 915 MHz) | Single board, LoRa at 915 MHz |
+| Radio computer | Adafruit Feather RP2040 RFM95 or Feather 32u4 RFM95 (LoRa, 915 MHz) | Single board, LoRa at 915 MHz |
 | Altitude | BME688 barometer, about 1 m | Barometer |
 | Motion and heading | Seeed Grove IMU 9DOF (ICM20600 + AK09918), tilt-compensated | Accelerometer and magnetometer |
 | Wake | A jumper pulled from the board, the demo pull tab | Pull tab |
 | Pairing feedback | LED | Haptic buzz |
 | Case | Plastic box, 96 by 66 by 32 mm | About the size of a bottle cap, about 15 g, about $15 |
-| Interrogator | Raspberry Pi 5, Feather 32u4 RFM95 bridge, Android phone with ATAK-CIV | Same, or carried by a Group 2 drone |
+| Interrogator | Feather 32u4 RFM95 bridge on USB, Android phone running ATAK-CIV and the companion app | Same, or carried by a Group 2 drone |
 
-Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_Hardware_Details.pdf). Bill of materials check against the production claims: [`video/bom-check.md`](video/bom-check.md).
+Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_Hardware_Details.pdf). Software bill of materials: [`SBOM.pdf`](SBOM.pdf). Bill of materials check against the production claims: [`video/bom-check.md`](video/bom-check.md).
+
+What works, verified over the air during the build (details in [`ai/STATUS.md`](ai/STATUS.md)): pull-tab activation, hand-to-hand pairing and a three-node chain with the backward drop report, slotted answers to a signed challenge with replay rejection, barometric tamper that bricks the dipcan, signed kill, and a tilt-compensated compass. Duty-cycled receive and the homing mode are designed and parked.
 
 ## Visualizations
 
-- **Explainer film** (7 min, real Zagros terrain, Sean's narration): `video/out/dipcan-graphics.mp4`. Source is a single Three.js page, rendered frame by frame; open `video/page/index.html` through `bun video/tools/serve.ts` to scrub it live.
+- **Explainer film** (9 min, real Zagros terrain, narrated, with the three Boston live tests spliced in): built from `video/`; the rendered MP4 is not in the repo. Source is a single Three.js page, rendered frame by frame; open `video/page/index.html` through `bun video/tools/serve.ts` to scrub it live.
 - **Hardware teardown** (interactive, eight steps, demo versus production): `video/teardown/index.html`, offline copy `video/teardown/index-offline.html`.
-- **Boston live test**: shot from 60 State Street, spliced into the film at three marked points. Plan: [`video/splice.md`](video/splice.md).
+- **Boston live test**: activation on the bench, the walk from 60 State Street, and the sweep, each cut with `video/tools/` and spliced into the film. Plan: [`video/splice.md`](video/splice.md).
 - **Novelty against fielded systems** (Thales, L3Harris, beacons): [`video/novelty.md`](video/novelty.md).
 
 ## Repo layout
@@ -78,11 +80,13 @@ Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_H
 firmware/
   common/packet.h     shared wire format, both sides build against it
   puck_feather/       Feather RP2040 RFM95 dipcan: activate, settle, listen, answer, tamper, brick
-  puck_32u4/          Feather 32u4 variant with the Grove IMU: heading and step count
-  bench_feather/      first-light sketch: BME688 + RFM95 init + LED
+  puck_32u4/          Feather 32u4 dipcan, same chain lifecycle, minimal sensors
+  bridge_feather/     Feather 32u4 LoRa bridge for the interrogator (RadioHead, moves bytes over USB)
+  lib/Grove_IMU_9DOF/ vendored and patched Seeed IMU library
   build.sh            arduino-cli wrapper that bakes the chain key in from interrogator/.env
+android-interrogator/ the phone app: drives the bridge over USB, signs challenges, orders the chain, feeds ATAK
 interrogator/
-  sweep.py            sends signed challenges (over the bridge, or straight to a dipcan on USB)
+  sweep.py            bench tool: sends signed challenges from a laptop or Pi
   chain.py            turns answers into an ordered chain with gaps
   cot.py              emits Cursor-on-Target markers and the route to ATAK (UDP multicast)
   packet.py           Python mirror of packet.h
@@ -100,12 +104,12 @@ firmware/build.sh puck 2 lora          # dipcan 2, over the air
 cd interrogator && python3 sweep.py --port /dev/ttyACM0 --key <chain-key-hex>
 ```
 
-ATAK on the phone joins the Pi's hotspot and receives markers on the default multicast group. No server needed.
+On the phone, the companion app sends markers to ATAK on the same device (a UDP input on port 4242) and to the default multicast group. No server needed.
 
 ## The demo
 
 1. The isolated person activates two dipcans at the table, drops one, walks the route from 60 State Street dropping three more, and sits out of sight. Nothing on any screen.
-2. The rescue team walks the route with the interrogator and presses sweep. Dipcans answer in turn; the chain draws in ATAK with elevation and an arrow from each to the next.
+2. The rescue team walks the route with the phone and radio and presses sweep. Dipcans answer in turn; the chain draws in ATAK with elevation and an arrow from each to the next.
 3. A judge picks up dipcan 3. Its marker turns "tampered" with the time, and the chain shows the gap.
 4. The team presses kill. Remaining markers go gray.
 
