@@ -2,7 +2,7 @@
 
 **Dropped, Indexed, Passive Challenge-Answer Network.** Team 21, Code Metal Forge, Boston, November 2026.
 
-**[▶ DEMO VIDEO](docs/DIPCAN-demo.mp4)** (9 min: the problem, the design, and three live tests in Boston)
+**[▶ DEMO VIDEO](docs/DIPCAN-demo.mp4)** (9 min: the problem, the design, and three live tests in Boston; plays in the browser). Higher quality, 720p, 32 MB, download: [DIPCAN-demo-720p.mp4](docs/DIPCAN-demo-720p.mp4).
 
 A radio tells us where an isolated person is when they key it. DIPCAN tells us where they went while they stayed silent.
 
@@ -79,7 +79,7 @@ What works, verified over the air during the build (details in [`ai/STATUS.md`](
 
 ## Film and photos
 
-The demo video (nine minutes, real Zagros terrain, narrated, with the three Boston live tests): [`docs/DIPCAN-demo.mp4`](docs/DIPCAN-demo.mp4), 720p. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
+The demo video (nine minutes, real Zagros terrain, narrated, with the three Boston live tests): [`docs/DIPCAN-demo.mp4`](docs/DIPCAN-demo.mp4) plays in the browser; [`docs/DIPCAN-demo-720p.mp4`](docs/DIPCAN-demo-720p.mp4) is the higher quality download. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
 
 ## Repo layout
 

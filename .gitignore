@@ -30,4 +30,4 @@ interrogator/.counter
 video/
 
 # the demo video is the one video kept in the repo
-!docs/DIPCAN-demo.mp4
+!docs/DIPCAN-demo*.mp4
