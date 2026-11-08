@@ -9,7 +9,7 @@ this file summarizes it and records the decisions made since.
 Bottle-cap LoRa pucks (~15 g, target $15) that an isolated person (IP) drops as they move.
 Each puck:
 
-**Chain lifecycle (final, Peter, Sat 23:30). The successor's activation is the drop signal.**
+**Chain lifecycle (final, Peter, Sat 21:10). The successor's activation is the drop signal.**
 Every puck runs the same logic when its pull-tab is pulled:
 
 1. **Dormant** in the vest, tab in. No emissions.
@@ -88,7 +88,7 @@ this. All firmware lives in `firmware/puck_feather/` and builds with `arduino-cl
 - **Sleep-and-listen is the hardest piece. Timebox to Sat 22:00.** If it isn't working,
   run pucks always-on for the demo and state the duty-cycle math.
 
-### Chain linking and keys (decided Sat 17:45–23:30; see the lifecycle above)
+### Chain linking and keys (decided Sat 17:45–21:10; see the lifecycle above)
 - **ID assignment at activation, hand to hand.** `PKT_PAIR_REQ` for `PAIR_ASK_MS` (15 s) at
   `LORA_PAIR_TX_DBM`; `PKT_PAIR_ACK {myId}` from the predecessor; new puck takes `myId + 1` and
   stores `prevId`. No ack → ID 0. Accept only RSSI ≥ `PAIR_RSSI_MIN`. All pucks flashed identical

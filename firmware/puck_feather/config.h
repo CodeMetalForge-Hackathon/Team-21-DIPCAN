@@ -75,16 +75,17 @@
 #define PIN_RF_CS          16
 #define PIN_RF_RST         17
 #define PIN_RF_DIO0        21
+#define PIN_TAB_GND        5         // driven LOW in pull-tab mode: tab jumper can be D6<->D5 instead of D6<->GND
 #define PIN_HALL           6         // Grove Hall (A1104): LOW near magnet. Grove magnetic (reed) switch: HIGH near magnet.
 #ifndef HALL_ACTIVE_LOW
 #define HALL_ACTIVE_LOW    1         // 1 = Hall sensor, 0 = reed switch (build.sh: REED=1)
 #endif
-// Pull-tab mode (build.sh: TAB=1): a jumper from D6 to 3V3 is the "tab". Tab IN (HIGH) = dormant.
-// Pull it (LOW) = activate. Re-insert and hold 10 s = IP kill. No sensor at all.
+// Pull-tab mode (build.sh: TAB=1): a jumper from D6 to GND is the "tab" (same on the 32u4 pucks).
+// Tab IN (LOW) = dormant. Pull it (HIGH via pull-up) = activate. Re-insert and hold 10 s = IP kill.
 #ifndef PULL_TAB
 #define PULL_TAB           0
 #endif
-#define TAB_PULL_MS        300       // LOW this long after being HIGH = tab pulled
+#define TAB_PULL_MS        600       // out this long = tab pulled (> HALL_RELEASE_MS so the hold timer has cleared)
 #define TAB_ABSENT_BOOT_MS 2000      // never saw a tab after boot for this long = treat as pulled
 #define HALL_TAP_MS        300       // magnet present this long = activate (debounce)
 #define HALL_KILL_MS       10000     // magnet held this long after activation = IP kill

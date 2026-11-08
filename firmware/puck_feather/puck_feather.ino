@@ -436,7 +436,8 @@ static void handlePacket(const uint8_t* buf, size_t n) {
 void setup() {
   pinMode(PUCK_LED, OUTPUT);
 #if PULL_TAB
-  pinMode(PIN_HALL, INPUT_PULLDOWN);                                    // tab out = LOW
+  pinMode(PIN_HALL, INPUT_PULLUP);                                      // tab = D6<->GND or D6<->D5: in = LOW, pulled = HIGH
+  pinMode(PIN_TAB_GND, OUTPUT); digitalWrite(PIN_TAB_GND, LOW);         // D5 acts as the tab's ground
 #else
   pinMode(PIN_HALL, HALL_ACTIVE_LOW ? INPUT_PULLUP : INPUT_PULLDOWN);
 #endif
@@ -480,14 +481,15 @@ void setup() {
 
 // "Magnet present" = the activation/kill input is asserted.
 #if PULL_TAB
-static bool magnetPresent() { return digitalRead(PIN_HALL) == HIGH; }
+// Tab = jumper D6 <-> GND (same on every puck; AVR boards only have pull-ups). In = LOW.
+static bool magnetPresent() { return digitalRead(PIN_HALL) == LOW; }
 static bool tabIn = false, tabEverIn = false;
 static bool tabPulled() {
-  static uint32_t lowSince = 0;
+  static uint32_t outSince = 0;
   uint32_t now = millis();
-  if (digitalRead(PIN_HALL) == HIGH) { tabIn = true; tabEverIn = true; lowSince = 0; return false; }
-  if (!lowSince) lowSince = now;
-  if (tabIn) { if (now - lowSince > TAB_PULL_MS) { tabIn = false; return true; } return false; }
+  if (digitalRead(PIN_HALL) == LOW) { tabIn = true; tabEverIn = true; outSince = 0; return false; }
+  if (!outSince) outSince = now;
+  if (tabIn) { if (now - outSince > TAB_PULL_MS) { tabIn = false; return true; } return false; }
   if (!tabEverIn && now > TAB_ABSENT_BOOT_MS) { tabEverIn = true; return true; }
   return false;
 }
@@ -497,6 +499,7 @@ static bool magnetPresent() { return digitalRead(PIN_HALL) == (HALL_ACTIVE_LOW ?
 static uint32_t hallHeldMs() {
   static uint32_t since = 0, lastSeen = 0; static bool wasOn = false;
   uint32_t now = millis(); bool on = magnetPresent();
+  if (state == DORMANT) since = 0;          // a tab sitting in while dormant is not a "hold"; count only after activation
   if (on) { if (!since) since = now; lastSeen = now; }
   else if (since && now - lastSeen > HALL_RELEASE_MS) since = 0;
   if (on != wasOn) { wasOn = on; Serial.printf("EVT magnet %s\n", on ? "on" : "off"); }
@@ -531,7 +534,7 @@ static void handleCommand(String l, Stream& reply, bool fromUsb) {
   } else if (l == "PINTEST") {
     pinMode(PIN_HALL, INPUT_PULLDOWN); delay(5); int pd = digitalRead(PIN_HALL);
     pinMode(PIN_HALL, INPUT_PULLUP);   delay(5); int pu = digitalRead(PIN_HALL);
-    pinMode(PIN_HALL, (PULL_TAB || !HALL_ACTIVE_LOW) ? INPUT_PULLDOWN : INPUT_PULLUP);
+    pinMode(PIN_HALL, (!PULL_TAB && !HALL_ACTIVE_LOW) ? INPUT_PULLDOWN : INPUT_PULLUP);
     reply.printf("PINTEST d6 pulldown=%d pullup=%d\n", pd, pu);
   } else if (l == "I2CSCAN") {
     reply.print("I2C");
@@ -634,7 +637,8 @@ void loop() {
 
     case ARMING:
       pollRadio();
-      if (now - tArmStart > ARM_DELAY_MS && fabsf(g - 1.0f) < STILL_G) {
+      // fresh millis(): a blocking drop report (or the DROP command) can run before this check in the same loop
+      if (millis() - tArmStart > ARM_DELAY_MS && fabsf(g - 1.0f) < STILL_G) {
         bx = x; by = y; bz = z; baroBasePa = baroPa; elevBaseM = altitudeM(baroPa);
         tArmed = now; tSusp = 0;
         Serial.printf("EVT armed base_pa=%.0f elev=%.1f\n", baroBasePa, elevBaseM);

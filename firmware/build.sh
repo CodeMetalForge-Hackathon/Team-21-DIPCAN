@@ -29,6 +29,13 @@ case "${1:-puck}" in
     arduino-cli compile --fqbn "$FQBN_PUCK" "$ROOT/firmware/puck_feather" --library "$ROOT/firmware/lib/Grove_IMU_9DOF" --build-property "build.extra_flags=$FLAGS"
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN_PUCK" -p "$PORT" "$ROOT/firmware/puck_feather"
     ;;
+  puck32)
+    # Minimal puck on a Feather 32u4 RFM95 (no sensors). env LAST=1 for the final puck. Tab = D6<->GND.
+    PORT="${2:-$(arduino-cli board list 2>/dev/null | awk '/32u4/{print $1; exit}')}"
+    FLAGS="-I$ROOT/firmware/common -mcall-prologues -DCHAIN_KEY_HEX=\"$KEY\" -DCHAIN_ID=$CHAIN -DIS_LAST=${LAST:-0} -DHAS_ACCEL=${ACCEL:-0} -DHAS_IMU9=${IMU9:-0}"
+    arduino-cli compile --fqbn adafruit:avr:feather32u4 "$ROOT/firmware/puck_32u4" --library "$ROOT/firmware/lib/Grove_IMU_9DOF" --build-property "build.extra_flags=$FLAGS"
+    [ -n "$PORT" ] && arduino-cli upload --fqbn adafruit:avr:feather32u4 -p "$PORT" "$ROOT/firmware/puck_32u4"
+    ;;
   bench)
     PORT="${2:-$(port_auto)}"
     arduino-cli compile --fqbn "$FQBN_PUCK" "$ROOT/firmware/bench_feather"
