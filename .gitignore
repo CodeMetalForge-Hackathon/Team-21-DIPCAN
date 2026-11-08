@@ -25,7 +25,6 @@ __pycache__/
 # interrogator runtime state
 interrogator/.counter
 
-# video build outputs (frames, renders, narration clips, whisper scratch)
-video/out/
-video/audio/
-video/node_modules/
+
+# film and tooling live outside the repo
+video/

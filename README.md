@@ -6,9 +6,17 @@ A radio tells us where an isolated person is when they key it. DIPCAN tells us w
 
 An isolated person drops small radio pucks, dipcans, as they move. Each one records the leg it was carried: steps, heading, and elevation. None of them transmit on their own. When a friendly team with the chain key asks, every dipcan answers in turn and the trail draws itself in ATAK. If an enemy picks one up, it wipes itself, and the gap in the chain says where the enemy was and when.
 
-[![Watch the explainer film: the Zagros near Dehdasht](docs/media/zagros.png)](video/out/dipcan-graphics.mp4)
+![The Zagros near Dehdasht, Kohgiluyeh and Boyer-Ahmad](docs/media/zagros.png)
 
-*Click the image for the seven-minute explainer film.*
+## What we built in 26 hours
+
+- **An original hardware design and working prototypes.** Three dipcans and an interrogator on Adafruit Feather LoRa boards, a barometer, a nine-axis IMU, soldered antennas, pull-tab activation. Pairing, the chain, tamper, kill, and the slotted signed answers all verified over the air.
+- **Four pieces of firmware.** The RP2040 dipcan, the 32u4 dipcan, the 32u4 LoRa bridge, and the ESP32 BLE bridge (parked once the IMU took over heading).
+- **An Android interrogator app.** Drives the bridge over USB, signs challenges, orders the chain, and delivers it to ATAK on the same phone.
+- **ATAK integration.** Cursor-on-Target markers and the route, on the map the team already carries.
+- **A nine-minute explainer film** on real Zagros terrain, with three live tests shot in Boston.
+
+About 5,000 lines of our own code, every one of them written after the Saturday 10:00 start.
 
 ## The story
 
@@ -63,16 +71,13 @@ The rescue element, a hostage rescue team, a search and rescue team, a helicopte
 | Case | Plastic box, 96 by 66 by 32 mm | About the size of a bottle cap, about 15 g, about $15 |
 | Interrogator | Feather 32u4 RFM95 bridge on USB, Android phone running ATAK-CIV and the companion app | Same, or carried by a Group 2 drone |
 
-Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_Hardware_Details.pdf). Software bill of materials: [`SBOM.pdf`](SBOM.pdf). Bill of materials check against the production claims: [`video/bom-check.md`](video/bom-check.md).
+Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_Hardware_Details.pdf). Software bill of materials: [`SBOM.pdf`](SBOM.pdf). Bill of materials check against the production claims: [`docs/bom-check.md`](docs/bom-check.md).
 
 What works, verified over the air during the build (details in [`ai/STATUS.md`](ai/STATUS.md)): pull-tab activation, hand-to-hand pairing and a three-node chain with the backward drop report, slotted answers to a signed challenge with replay rejection, barometric tamper that bricks the dipcan, signed kill, and a tilt-compensated compass. Duty-cycled receive and the homing mode are designed and parked.
 
-## Visualizations
+## Film and photos
 
-- **Explainer film** (9 min, real Zagros terrain, narrated, with the three Boston live tests spliced in): built from `video/`; the rendered MP4 is not in the repo. Source is a single Three.js page, rendered frame by frame; open `video/page/index.html` through `bun video/tools/serve.ts` to scrub it live.
-- **Hardware teardown** (interactive, eight steps, demo versus production): `video/teardown/index.html`, offline copy `video/teardown/index-offline.html`.
-- **Boston live test**: activation on the bench, the walk from 60 State Street, and the sweep, each cut with `video/tools/` and spliced into the film. Plan: [`video/splice.md`](video/splice.md).
-- **Novelty against fielded systems** (Thales, L3Harris, beacons): [`video/novelty.md`](video/novelty.md).
+The explainer film (nine minutes, real Zagros terrain, narrated, with the three Boston live tests) is delivered with the submission; it is not in this repo. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
 
 ## Repo layout
 
@@ -90,8 +95,8 @@ interrogator/
   chain.py            turns answers into an ordered chain with gaps
   cot.py              emits Cursor-on-Target markers and the route to ATAK (UDP multicast)
   packet.py           Python mirror of packet.h
-video/                the film, the teardown, narration tools, splice plan
-docs/                 COA, hardware list, demo script, build guide
+gallery/              build photos
+docs/                 COA, hardware list, build guide, stills, novelty and BOM notes
 ```
 
 ## Build and run
