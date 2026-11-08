@@ -12,5 +12,5 @@ Photos from the build, Saturday 7 November to Sunday 8 November 2026, BASE-X Bos
 | Working the chain lifecycle at the board. | Lanes: puck firmware on one side, interrogator and ATAK on the other. |
 | [![Soldering antennas](hackathon-7.png)](hackathon-7.png) | [![Team 21](hackathon-8.png)](hackathon-8.png) |
 | Antennas and sensors going on. | Team 21. |
-| [![Code Metal Forge Hackathon 2026](hackathon-9.png)](hackathon-9.png) | |
-| Code Metal Forge Hackathon 2026, sponsored by U.S. Special Operations Command. | |
+| [![Code Metal Forge Hackathon 2026](hackathon-9.png)](hackathon-9.png) | [![Setting dipcan 0 at the base of the lamppost on State Street](hackathon-10.png)](hackathon-10.png) |
+| Code Metal Forge Hackathon 2026, sponsored by U.S. Special Operations Command. | The live test: setting dipcan 0 at the base of the lamppost on State Street. |
