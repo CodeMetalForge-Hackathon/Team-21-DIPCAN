@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adafruit Feather 32u4 RFM95 (bridge) and Feather RP2040 RFM (fallback bridge) -->
+    <usb-device vendor-id="9114" product-id="32780" />
+    <usb-device vendor-id="9114" product-id="33069" />
+    <usb-device vendor-id="9114" />
+</resources>

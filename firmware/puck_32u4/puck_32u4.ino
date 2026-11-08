@@ -36,7 +36,10 @@ static MMA7660 accel;
 static uint32_t stillSince = 0, lastStep = 0; static bool stepAbove = false;
 static uint16_t steps = 0;
 #define STILL_G       0.08f
-#define LAST_STILL_MS 60000UL       // LAST: still this long while carried = dropped
+#ifndef NO_TAB
+#define NO_TAB 0                    // 1 = node 0 build: no pull tab, DISARM re-activates it
+#endif
+#define LAST_STILL_MS 20000UL       // LAST: still this long while carried = dropped
 #define STEP_HIGH_G   1.15f
 #define STEP_LOW_G    0.95f
 #define STEP_MIN_MS   300UL
@@ -68,6 +71,7 @@ static uint16_t steps = 0;
 #define TAB_DROP_MAX_MS  5000UL     // ... and released before this = "I'm dropped"
 #define TAB_KILL_MS      10000UL
 #define SLOT_MS          400UL
+#define ANSWER_BASE_MS   700UL      // slot measured from challenge arrival; base covers this chip's ~0.5 s HMAC+EEPROM
 #define PIN_TAB          A5         // tab input (pull-up). 32u4 header: A5 is on the analog side, easy to find
 #define PIN_TAB_GND      A4         // driven LOW: tab jumper = A5 <-> A4 (or A5 <-> GND)
 #define PIN_LED          13
@@ -86,6 +90,7 @@ static uint8_t myId = ID_NONE, prevId = ID_NONE, nextId = ID_NONE;
 static bool placed = false;
 static uint16_t nextSteps = 0, nextHeading = 0xFFFF; static int16_t nextAltDelta = 0;
 static int lastRssi = 0;
+static uint32_t tChallengeRx = 0;   // millis() when the last packet arrived (answer slots key off it)
 static uint32_t stillSinceL = 0;
 
 static uint16_t headingDeg = 0xFFFF;
@@ -174,7 +179,8 @@ static void sendAnswer(uint32_t counter) {
   a.headingDeg = headingDeg; a.altDeltaM = 0;                    // no barometer on this build
   a.nextId = nextId; a.nextSteps = nextSteps; a.nextHeading = nextHeading; a.nextAltDelta = nextAltDelta;
   SIGN(a);
-  delay((myId == ID_NONE ? 0 : myId) * SLOT_MS);
+  uint32_t due = tChallengeRx + ANSWER_BASE_MS + (uint32_t)(myId == ID_NONE ? 0 : myId) * SLOT_MS;
+  while ((int32_t)(millis() - due) < 0) delay(1);
   tx(&a, sizeof(a), LORA_TX_DBM);
   blink(1, 60);
   Serial.print(F("EVT answered id=")); Serial.print(myId); Serial.print(F(" next=")); Serial.println(nextId);
@@ -193,13 +199,13 @@ static bool sendDropReport() {
   for (uint8_t pi = 0; pi < 3; pi++) for (uint8_t t = 0; t < DROP_TRIES; t++) {
     tx(&r, sizeof(r), powers[pi]);
     Serial.print(F("EVT drop_report to=")); Serial.print(prevId); Serial.print(F(" dbm=")); Serial.println(powers[pi]);
-    uint32_t t0 = millis(); uint8_t buf[PACKET_MAX];
-    while (millis() - t0 < DROP_ACK_WAIT_MS) {
+    uint32_t t0 = millis(); uint8_t buf[PACKET_MAX]; uint32_t wait = DROP_ACK_WAIT_MS + (millis() % 700);   // jitter breaks lockstep with another reporter
+    while (millis() - t0 < wait) {
       uint8_t n = rx(buf);
       if (n == sizeof(DropAck)) {
         DropAck a; memcpy(&a, buf, sizeof(a));
         if (a.type == PKT_DROP_ACK && a.toId == myId && a.fromId == prevId && VERIFY(a)) { evt(F("drop_acked")); return true; }
-      }
+      } else if (n == sizeof(DropReport) && buf[0] == PKT_DROP_REPORT) handle(buf, n);   // my successor reporting while I wait: store + ack it
     }
   }
   evt(F("drop_report_failed step back")); blink(10, 100); return false;
@@ -262,6 +268,7 @@ static void onPairReq() {
 
 static void handle(uint8_t* buf, uint8_t n) {
   uint8_t type = buf[0];
+  tChallengeRx = millis();
   if ((type == PKT_CHALLENGE || type == PKT_KILL) && n == sizeof(Challenge)) {
     Challenge c; memcpy(&c, buf, sizeof(c));
     if (!VERIFY(c)) { evt(F("bad_hmac")); return; }
@@ -276,8 +283,8 @@ static void handle(uint8_t* buf, uint8_t n) {
   } else if (type == PKT_PAIR_ACK && n == sizeof(Pair) && state == ASK) {
     Pair p; memcpy(&p, buf, sizeof(p));
     if (!VERIFY(p) || p.fromId == ID_NONE) return;
-    if (lastRssi < PAIR_RSSI_MIN) { evt(F("pair_ack too far")); return; }
-    prevId = p.fromId; myId = p.fromId + 1; tPaired = millis(); persistSave(false);
+    // No RSSI gate on the ack: proximity was already enforced on the request side.
+    prevId = p.fromId; myId = p.fromId + 1; tPaired = millis(); stillSinceL = 0; persistSave(false);
 #if HAS_ACCEL || HAS_IMU9
     steps = 0; stillSince = 0; stepAbove = false;
 #endif
@@ -301,16 +308,17 @@ static void pollRadio() { uint8_t buf[PACKET_MAX]; uint8_t n = rx(buf); if (n) h
 
 // ---- tab (D6 <-> GND, pull-up) ----
 static bool tabIn() { return digitalRead(PIN_TAB) == LOW; }
-static bool tabWasIn = false, tabEverIn = false, pullPending = false;
+static bool tabWasIn = false, tabEverIn = false, tabSeenIn = false, pullPending = false, tabIgnoreUntilOut = false;
 static uint32_t tabInSince = 0, tabOutSince = 0;
 // Returns: 1 = pulled (was in, now out for TAB_PULL_MS; or never had a tab 2 s after boot),
 //          2 = short re-insert released (LAST drop), 0 = nothing. A pull only counts after an insert.
 static uint8_t tabEvent() {
   uint32_t now = millis(); bool in = tabIn(); uint8_t ev = 0;
   if (in) {
-    if (!tabWasIn) { tabInSince = now; tabWasIn = true; tabEverIn = true; pullPending = false; evt(F("tab in")); }
-    if (state != DORMANT && state != BRICKED && now - tabInSince > TAB_KILL_MS) { brick(F("ip_kill")); }
+    if (!tabWasIn) { tabInSince = now; tabWasIn = true; tabEverIn = true; tabSeenIn = true; pullPending = false; evt(F("tab in")); }
+    if (!tabIgnoreUntilOut && state != DORMANT && state != BRICKED && now - tabInSince > TAB_KILL_MS) { brick(F("ip_kill")); }
   } else {
+    tabIgnoreUntilOut = false;
     if (tabWasIn) {
       uint32_t held = now - tabInSince; tabWasIn = false; tabOutSince = now; evt(F("tab out"));
       if (state != DORMANT && held >= TAB_DROP_MIN_MS && held <= TAB_DROP_MAX_MS) ev = 2;
@@ -344,8 +352,8 @@ static void command(const char* l) {
   else if (!strcmp(l, "IMU")) { float x, y, z; readAccel(x, y, z); Serial.print(F("IMU acc_mg=")); Serial.print((int)(x * 1000)); Serial.print(','); Serial.print((int)(y * 1000)); Serial.print(','); Serial.print((int)(z * 1000)); Serial.print(F(" hdg=")); Serial.print(headingNow(x, y, z)); Serial.print(F(" cal=")); Serial.print(magCal); Serial.print(F(" steps=")); Serial.print(steps); Serial.print(F(" dom=")); Serial.println(dominantHeading()); }
 #endif
   else if (!strcmp(l, "KILL")) { if (state != DORMANT && state != BRICKED) brick(F("serial_kill")); }
-  else if (!strcmp(l, "DISARM")) { if (state != BRICKED) { myId = prevId = nextId = ID_NONE; placed = false; tDrop = 0; nextSteps = 0; nextHeading = 0xFFFF; nextAltDelta = 0; persistSave(false); tabEverIn = true; pullPending = false; setState(DORMANT); Serial.println(F("OK DISARM")); } }
-  else if (!strcmp(l, "UNBRICK")) { if (state == BRICKED) { lastCounter = 0; myId = prevId = nextId = ID_NONE; placed = false; persistSave(false); Serial.println(F("EVT unbricked (power-cycle or reset to resume)")); setState(DORMANT); hexToKey(); rf95.setModeRx(); } }
+  else if (!strcmp(l, "DISARM")) { if (state != BRICKED) { myId = prevId = nextId = ID_NONE; placed = false; tDrop = 0; nextSteps = 0; nextHeading = 0xFFFF; nextAltDelta = 0; persistSave(false); tabEverIn = NO_TAB ? tabSeenIn : true; pullPending = false; setState(DORMANT); Serial.println(F("OK DISARM")); } }  // NO_TAB build (node 0) re-activates on its own after DISARM
+  else if (!strcmp(l, "UNBRICK")) { if (state == BRICKED) { lastCounter = 0; persistSave(false); hexToKey(); rf95.setModeRx(); Serial.println(F("EVT unbricked")); tabIgnoreUntilOut = tabIn(); tabInSince = millis(); if (placed && myId != ID_NONE) { tDrop = millis(); startArming(); } else setState(DORMANT); } }
   else if (l[0]) Serial.println(F("ERR unknown"));
 }
 static void hexToKey() {
@@ -385,7 +393,7 @@ void setup() {
   }
   Serial.print(F("EVT radio ")); Serial.println(ok ? F("ok") : F("FAILED"));
   if (state == BRICKED) { evt(F("previously_bricked")); logState(); return; }
-  if (placed && myId != ID_NONE) { evt(F("resume placed")); tDrop = millis(); startArming(); return; }
+  if (placed && myId != ID_NONE) { evt(F("resume placed")); tabIgnoreUntilOut = tabIn(); tDrop = millis(); startArming(); return; }
   myId = prevId = nextId = ID_NONE;
   setState(DORMANT);
 }
@@ -440,7 +448,7 @@ void loop() {
     }
     case ARMING:
       pollRadio();
-      if (now - tArmStart > ARM_DELAY_MS) { evt(F("armed (no tamper on this build)")); setState(ARMED); }
+      if (millis() - tArmStart > ARM_DELAY_MS) { evt(F("armed (no tamper on this build)")); setState(ARMED); }   // fresh millis(): startArming() may have run earlier this loop
       break;
     case ARMED:
       pollRadio();

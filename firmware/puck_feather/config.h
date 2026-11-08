@@ -25,6 +25,7 @@
 #define LISTEN_IDLE_SLEEP  0         // 0 = receiver always on (PoC). 1 = windowed wake-on-radio: not yet
                                      //     working with the bridge's long preamble; revisit after the PoC.
 #define SLOT_MS            400
+#define ANSWER_BASE_MS     700       // answers start this long after the challenge arrived (covers the 32u4 HMAC time)
 #define SUSPICIOUS_MS      2000
 #define TAMPER_ALONE_MS    10000
 
@@ -37,7 +38,7 @@
 #define DROP_ACK_WAIT_MS   1500            // wait for DROP_ACK after each report attempt
 #define DROP_POWERS        { 5, 10, 20 }   // dBm steps for the drop report
 #define DROP_TRIES         3               // attempts per power step
-#define LAST_STILL_MS      (60UL * 1000)   // LAST build: still this long while carried = dropped
+#define LAST_STILL_MS      (20UL * 1000)   // LAST build: still this long while carried = dropped
 #ifndef IS_LAST
 #define IS_LAST            0               // build.sh: LAST=1 for the final (different-colour) puck
 #endif

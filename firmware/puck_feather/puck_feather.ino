@@ -54,6 +54,8 @@ static SX1276 radio = new Module(PIN_RF_CS, PIN_RF_DIO0, PIN_RF_RST, RADIOLIB_NC
 static volatile bool rxDone = false;
 static void onRxDone() { rxDone = true; }
 static float lastRssi = 0;
+static bool hallIgnoreUntilRelease = false;   // tab already in at boot/unbrick: ignore until it has been pulled once
+static uint32_t tChallengeRx = 0;   // millis() when the last packet arrived (answer slots key off it)
 static Adafruit_BME680 bme;
 static bool haveBaro = false;
 
@@ -321,7 +323,10 @@ static void sendAnswer(uint32_t counter) {
   a.steps = steps; a.headingDeg = headingDeg; a.altDeltaM = altDeltaM;
   a.nextId = nextId; a.nextSteps = nextSteps; a.nextHeading = nextHeading; a.nextAltDelta = nextAltDelta;
   SIGN(a);
-  delay((myId == ID_NONE ? 0 : myId) * SLOT_MS);
+  // Slot is measured from the challenge's arrival, after signing, with a base that covers the slowest
+  // puck's HMAC time (the 32u4 needs ~0.5 s). Otherwise fast pucks talk over slow ones.
+  uint32_t due = tChallengeRx + ANSWER_BASE_MS + (uint32_t)(myId == ID_NONE ? 0 : myId) * SLOT_MS;
+  while ((int32_t)(millis() - due) < 0) delay(1);
   txPacket((const uint8_t*)&a, sizeof(a));
   blink(1);
   Serial.printf("EVT answered ctr=%lu id=%u elev=%d next=%u\n", (unsigned long)counter, myId, a.elevM, nextId);
@@ -342,6 +347,7 @@ static void endLeg(const char* why) {
   Serial.printf("EVT dropped (%s) leg: steps=%u hdg=%u dalt=%d\n", why, steps, headingDeg, altDeltaM);
 }
 
+static void onDropReport(const DropReport& r);
 // Backward report to my predecessor, stepping power up until acked. Blocks up to ~13 s.
 static bool sendDropReport() {
   if (prevId == ID_NONE) { Serial.println("EVT drop_report none (node 0)"); return true; }
@@ -352,15 +358,15 @@ static bool sendDropReport() {
     for (int t = 0; t < DROP_TRIES; t++) {
       txPacket((const uint8_t*)&r, sizeof(r), powers[pi]);
       Serial.printf("EVT drop_report to=%u at %d dBm try %d\n", prevId, powers[pi], t + 1);
-      uint32_t t0 = millis();
-      while (millis() - t0 < DROP_ACK_WAIT_MS) {
+      uint32_t t0 = millis(); uint32_t wait = DROP_ACK_WAIT_MS + (millis() % 700);   // jitter breaks lockstep with another reporter
+      while (millis() - t0 < wait) {
         uint8_t buf[PACKET_MAX]; size_t n = rxPacket(buf, sizeof(buf));
         if (n == sizeof(DropAck)) {
           DropAck a; memcpy(&a, buf, sizeof(a));
           if (a.type == PKT_DROP_ACK && a.toId == myId && a.fromId == prevId && VERIFY(a)) {
             Serial.printf("EVT drop_acked by %u at %d dBm\n", prevId, powers[pi]); return true;
           }
-        }
+        } else if (n == sizeof(DropReport) && buf[0] == PKT_DROP_REPORT) { DropReport r; memcpy(&r, buf, sizeof(r)); onDropReport(r); }   // successor reporting while I wait
         delay(5);
       }
     }
@@ -398,6 +404,7 @@ static void onDropReport(const DropReport& r) {
 
 static void handlePacket(const uint8_t* buf, size_t n) {
   uint8_t type = buf[0];
+  tChallengeRx = millis();
   if (type == PKT_CHALLENGE || type == PKT_KILL) {
     if (n != sizeof(Challenge)) return;
     Challenge c; memcpy(&c, buf, sizeof(c));
@@ -413,7 +420,7 @@ static void handlePacket(const uint8_t* buf, size_t n) {
     if (n != sizeof(Pair) || state != ASK) return;
     Pair p; memcpy(&p, buf, sizeof(p));
     if (!VERIFY(p) || p.fromId == ID_NONE) return;
-    if (!closeEnough()) { Serial.printf("EVT pair_ack too far rssi=%.0f\n", lastRssi); return; }
+    // No RSSI gate on the ack: proximity was already enforced on the request side.
     prevId = p.fromId; myId = p.fromId + 1; persistSave(false);
     Serial.printf("EVT paired id=%u prev=%u rssi=%.0f\n", myId, prevId, lastRssi);
 #if HAS_IMU
@@ -474,7 +481,7 @@ void setup() {
   Serial.printf("EVT radio %s (%d)\n", st == RADIOLIB_ERR_NONE ? "ok" : "FAILED", st);
 
   if (state == BRICKED) { Serial.println("EVT previously_bricked"); setState(BRICKED); return; }
-  if (placed && myId != ID_NONE) { Serial.printf("EVT resume placed id=%u prev=%u next=%u\n", myId, prevId, nextId); tDrop = millis(); startArming(); return; }
+  if (placed && myId != ID_NONE) { Serial.printf("EVT resume placed id=%u prev=%u next=%u\n", myId, prevId, nextId); hallIgnoreUntilRelease = magnetPresent(); tDrop = millis(); startArming(); return; }
   myId = ID_NONE; prevId = ID_NONE; nextId = ID_NONE;
   setState(DORMANT);
 }
@@ -499,7 +506,8 @@ static bool magnetPresent() { return digitalRead(PIN_HALL) == (HALL_ACTIVE_LOW ?
 static uint32_t hallHeldMs() {
   static uint32_t since = 0, lastSeen = 0; static bool wasOn = false;
   uint32_t now = millis(); bool on = magnetPresent();
-  if (state == DORMANT) since = 0;          // a tab sitting in while dormant is not a "hold"; count only after activation
+  if (!on) hallIgnoreUntilRelease = false;
+  if (state == DORMANT || hallIgnoreUntilRelease) since = 0;   // dormant, or a tab that was in before activation: not a hold
   if (on) { if (!since) since = now; lastSeen = now; }
   else if (since && now - lastSeen > HALL_RELEASE_MS) since = 0;
   if (on != wasOn) { wasOn = on; Serial.printf("EVT magnet %s\n", on ? "on" : "off"); }
@@ -555,7 +563,7 @@ static void handleCommand(String l, Stream& reply, bool fromUsb) {
     }
   } else if (l == "UNBRICK") {
     if (fromUsb && state == BRICKED) {
-      lastCounter = 0; myId = prevId = nextId = ID_NONE; placed = false; persistSave(false);
+      lastCounter = 0; persistSave(false);          // keeps id / legs / placed: a placed puck resumes ARMING
       Serial.println("EVT unbricked_rebooting"); delay(100); rp2040.reboot();
     }
   } else if (l.length()) {

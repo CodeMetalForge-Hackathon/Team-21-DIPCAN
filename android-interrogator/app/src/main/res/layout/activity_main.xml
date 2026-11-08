@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="12dp">
+    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="bridge: not connected" android:textSize="16sp" android:paddingBottom="6dp"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <EditText android:id="@+id/key" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:hint="chain key (32 hex)" android:inputType="textNoSuggestions" android:textSize="13sp"/>
+        <EditText android:id="@+id/chainId" android:layout_width="64dp" android:layout_height="wrap_content"
+            android:hint="chain" android:inputType="number" android:text="1" android:textSize="13sp"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <EditText android:id="@+id/anchorLat" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:hint="anchor lat (blank = phone GPS)" android:inputType="numberDecimal|numberSigned" android:textSize="13sp"/>
+        <EditText android:id="@+id/anchorLon" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:hint="anchor lon" android:inputType="numberDecimal|numberSigned" android:textSize="13sp"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="6dp">
+        <Button android:id="@+id/connect" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Connect"/>
+        <Button android:id="@+id/sweep" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Sweep"/>
+        <ToggleButton android:id="@+id/auto" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+            android:textOn="Auto: on" android:textOff="Auto: off"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <Button android:id="@+id/kill" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="KILL CHAIN"/>
+        <Button android:id="@+id/clear" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Clear"/>
+    </LinearLayout>
+    <ScrollView android:id="@+id/scroll" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1">
+        <TextView android:id="@+id/log" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:fontFamily="monospace" android:textSize="12sp"/>
+    </ScrollView>
+</LinearLayout>

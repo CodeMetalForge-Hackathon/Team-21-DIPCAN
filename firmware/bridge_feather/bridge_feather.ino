@@ -10,8 +10,7 @@
 //         firmware/build.sh bridge rp2040 [port]  (RP2040)
 // Keep this tiny on the 32u4: no String, no printf.
 
-#define PACKET_MAX 40
-#define RH_HDR_LEN 4
+#include "packet.h"   // PACKET_MAX (48) and RH_HDR_LEN from the shared contract; built with -I firmware/common
 #define LORA_FREQ  915.0
 #define LORA_TX_DBM 5          // raise to 20 once antennas are soldered
 // Preamble length in symbols. 8 = normal. For wake-on-radio (pucks duty-cycling their receiver,

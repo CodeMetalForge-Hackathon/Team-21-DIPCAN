@@ -30,9 +30,9 @@ case "${1:-puck}" in
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN_PUCK" -p "$PORT" "$ROOT/firmware/puck_feather"
     ;;
   puck32)
-    # Minimal puck on a Feather 32u4 RFM95 (no sensors). env LAST=1 for the final puck. Tab = D6<->GND.
+    # Minimal puck on a Feather 32u4 RFM95 (no sensors). env LAST=1 for the final puck, NOTAB=1 for node 0 (no tab). Tab = A5<->A4.
     PORT="${2:-$(arduino-cli board list 2>/dev/null | awk '/32u4/{print $1; exit}')}"
-    FLAGS="-I$ROOT/firmware/common -mcall-prologues -DCHAIN_KEY_HEX=\"$KEY\" -DCHAIN_ID=$CHAIN -DIS_LAST=${LAST:-0} -DHAS_ACCEL=${ACCEL:-0} -DHAS_IMU9=${IMU9:-0}"
+    FLAGS="-I$ROOT/firmware/common -mcall-prologues -DCHAIN_KEY_HEX=\"$KEY\" -DCHAIN_ID=$CHAIN -DIS_LAST=${LAST:-0} -DHAS_ACCEL=${ACCEL:-0} -DHAS_IMU9=${IMU9:-0} -DNO_TAB=${NOTAB:-0}"
     arduino-cli compile --fqbn adafruit:avr:feather32u4 "$ROOT/firmware/puck_32u4" --library "$ROOT/firmware/lib/Grove_IMU_9DOF" --build-property "build.extra_flags=$FLAGS"
     [ -n "$PORT" ] && arduino-cli upload --fqbn adafruit:avr:feather32u4 -p "$PORT" "$ROOT/firmware/puck_32u4"
     ;;
@@ -45,7 +45,7 @@ case "${1:-puck}" in
     # Feather 32u4 RFM95 by default; pass "rp2040" as $2 to build the bridge for a second RP2040 Feather.
     if [ "${2:-}" = "rp2040" ]; then FQBN="$FQBN_PUCK"; PORT="${3:-$(port_auto)}"
     else FQBN="adafruit:avr:feather32u4"; PORT="${2:-$(arduino-cli board list 2>/dev/null | awk '/32u4/{print $1; exit}')}"; fi
-    arduino-cli compile --fqbn "$FQBN" "$ROOT/firmware/bridge_feather"
+    arduino-cli compile --fqbn "$FQBN" "$ROOT/firmware/bridge_feather" --build-property "build.extra_flags=-I$ROOT/firmware/common"
     [ -n "$PORT" ] && arduino-cli upload --fqbn "$FQBN" -p "$PORT" "$ROOT/firmware/bridge_feather"
     ;;
   ble)
