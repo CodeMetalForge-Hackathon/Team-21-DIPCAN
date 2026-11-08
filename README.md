@@ -75,7 +75,7 @@ The rescue element, a hostage rescue team, a search and rescue team, a helicopte
 
 Parts list and sources: [`docs/Hackathon_Hardware_Details.pdf`](docs/Hackathon_Hardware_Details.pdf). Software bill of materials: [`SBOM.pdf`](SBOM.pdf). Bill of materials check against the production claims: [`docs/bom-check.md`](docs/bom-check.md).
 
-What works, verified over the air during the build (details in [`ai/STATUS.md`](ai/STATUS.md)): pull-tab activation, hand-to-hand pairing and a three-node chain with the backward drop report, slotted answers to a signed challenge with replay rejection, barometric tamper that bricks the dipcan, signed kill, and a tilt-compensated compass. Duty-cycled receive and the homing mode are designed and parked.
+What works, verified over the air during the build: pull-tab activation, hand-to-hand pairing and a three-node chain with the backward drop report, slotted answers to a signed challenge with replay rejection, barometric tamper that bricks the dipcan, signed kill, and a tilt-compensated compass. Duty-cycled receive and the homing mode are designed and parked.
 
 ## Film and photos
 
