@@ -2,7 +2,7 @@
 
 **Dropped, Indexed, Passive Challenge-Answer Network.** Team 21, Code Metal Forge, Boston, November 2026.
 
-**[▶ DEMO VIDEO](docs/DIPCAN-demo.mp4)** (9 min: the problem, the design, and three live tests in Boston; plays in the browser). Higher quality, 720p, 32 MB, download: [DIPCAN-demo-720p.mp4](docs/DIPCAN-demo-720p.mp4).
+**[▶ DEMO VIDEO](https://youtu.be/8vSuHakySUA)** (9 min on YouTube: the problem, the design, and three live tests in Boston). Offline copy in the repo: [720p, 32 MB](docs/DIPCAN-demo-720p.mp4).
 
 A radio tells us where an isolated person is when they key it. DIPCAN tells us where they went while they stayed silent.
 
@@ -79,7 +79,7 @@ What works, verified over the air during the build (details in [`ai/STATUS.md`](
 
 ## Film and photos
 
-The demo video (nine minutes, real Zagros terrain, narrated, with the three Boston live tests): [`docs/DIPCAN-demo.mp4`](docs/DIPCAN-demo.mp4) plays in the browser; [`docs/DIPCAN-demo-720p.mp4`](docs/DIPCAN-demo-720p.mp4) is the higher quality download. Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
+The demo video (nine minutes, real Zagros terrain, narrated, with the three Boston live tests) is on YouTube: [youtu.be/8vSuHakySUA](https://youtu.be/8vSuHakySUA). Offline copies in the repo: [`docs/DIPCAN-demo-720p.mp4`](docs/DIPCAN-demo-720p.mp4) (32 MB) and [`docs/DIPCAN-demo.mp4`](docs/DIPCAN-demo.mp4) (480p, 7 MB). Stills from it are in `docs/media/`. Build photos: [`gallery/`](gallery/). How DIPCAN differs from fielded transponder systems: [`docs/novelty.md`](docs/novelty.md).
 
 ## Repo layout
 
@@ -120,9 +120,9 @@ On the phone, the companion app sends markers to ATAK on the same device (a UDP 
 3. A judge picks up dipcan 3. Its marker turns "tampered" with the time, and the chain shows the gap.
 4. The team presses kill. Remaining markers go gray.
 
-[![Watch the demo video](docs/media/close.png)](docs/DIPCAN-demo.mp4)
+[![Watch the demo video](docs/media/close.png)](https://youtu.be/8vSuHakySUA)
 
-*Click the image to play the demo video.*
+*Click the image to watch the demo video on YouTube.*
 
 ## Team
 
